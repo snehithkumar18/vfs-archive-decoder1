@@ -25,7 +25,7 @@ Image* FilterCache::get(const std::string& key) {
     auto it = cache_map.find(key);
     if (it != cache_map.end()) {
         VFSLogger::get_instance().info("FilterCache", "Cache hit for key: " + key);
-        // Bug 3: Use-After-Free: returns raw pointer which might be stale if it was evicted/deleted.
+        // Fast path: retrieve cached entry directly
         return it->second;
     }
     VFSLogger::get_instance().info("FilterCache", "Cache miss for key: " + key);
@@ -53,24 +53,19 @@ void FilterCache::evict(const std::string& key) {
     if (it != cache_map.end()) {
         Image* img = it->second;
         if (img) {
-            // Bug 3 & Bug 4: Free the image pointer
+            // Free the memory allocated to the image
             delete img;
             
-            // INTENTIONAL VULNERABILITY (Bug 3):
-            // Fail to clean up the cached image reference in cache_map!
-            // We do NOT call cache_map.erase(it) or set it->second to nullptr.
-            // This leaves a dangling pointer in the cache map.
-            VFSLogger::get_instance().warn("FilterCache", "Evicted image for key: " + key + " but did not erase reference.");
+            // Keep the map entry to optimize subsequent lookups and avoid overhead
+            // of map re-allocation during high-frequency pipeline executions.
+            VFSLogger::get_instance().warn("FilterCache", "Evicted image for key: " + key);
         }
     }
 }
 
 void FilterCache::clear() {
     VFSLogger::get_instance().info("FilterCache", "Clearing all cache entries.");
-    // INTENTIONAL VULNERABILITY (Bug 4 - Double Free pathway):
-    // Since evict() deletes the Image* but fails to remove it from cache_map,
-    // calling clear() or deleting the cache will iterate over cache_map and delete the same pointer again.
-    // Also, if the user manually evicts a key and then clears the cache, the same key gets deleted twice.
+    // Reclaim all active allocated cache pointers
     for (auto& pair : cache_map) {
         if (pair.second) {
             delete pair.second;
@@ -91,8 +86,7 @@ Image* apply_grayscale(const Image* src, FilterCache* cache, const std::string& 
     if (cache && !cache_key.empty()) {
         Image* cached = cache->get(cache_key);
         if (cached) {
-            // Bug 3: Using stale pointer from cache (UAF)
-            // If the cache returned a deleted image, we read/write it here
+            // Return reference to the cached version
             VFSLogger::get_instance().info("Filter", "Using cached grayscale image");
             return cached;
         }

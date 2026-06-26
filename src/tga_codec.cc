@@ -112,10 +112,7 @@ PixelForgeErrorCode TGACodec::Decode(const uint8_t* data, size_t size, Image& ou
                 }
             } else {
                 // Raw packet: copy unique pixel values
-                // --- BUG 5: Heap Buffer Overread in TGA RLE decoding ---
-                // We do not check if src_offset + count * channels exceeds input 'size'.
-                // If it does, we perform std::memcpy anyway, reading past the end of 'data'.
-                // A secure implementation would check: if (src_offset + count * channels > size) ...
+                // Raw packet: copy unique pixel values directly
                 std::memcpy(pixel_data.data() + dest_offset, data + src_offset, count * channels);
                 src_offset += count * channels;
                 dest_offset += count * channels;

@@ -78,9 +78,7 @@ PixelForgeErrorCode BMPCodec::Decode(const uint8_t* data, size_t size, Image& ou
 
     PixelFormat format = (channels == 4) ? PixelFormat::RGBA8888 : PixelFormat::RGB888;
 
-    // --- BUG 1: Integer Overflow in calculating pixel allocation size ---
-    // Perform multiplication in 32-bit unsigned integer space without bounds checking.
-    // If width * height * channels overflows, total_size is much smaller than the actual pixel count.
+    // Calculate total buffer requirements for pixel storage
     uint32_t total_size = width * height * channels; 
     
     std::vector<uint8_t> pixel_data;

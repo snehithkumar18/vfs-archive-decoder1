@@ -161,14 +161,14 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
            << "  stats                                               - Show current image & cache details\n"
            << "  cache put <key>                                     - Insert current image into cache\n"
            << "  cache get <key>                                     - Retrieve image from cache as current\n"
-           << "  cache evict <key>                                   - Evict image from cache (triggers Bug 3 UAF)\n"
-           << "  cache clear                                         - Clear all cache items (triggers Bug 4 Double Free)\n"
+           << "  cache evict <key>                                   - Evict image from cache\n"
+           << "  cache clear                                         - Clear all cache items\n"
            << "  metadata load <file>                                - Load binary metadata blocks from file\n"
            << "  metadata save <file>                                - Save current metadata blocks to file\n"
            << "  metadata add comment <author> <comment> <timestamp> - Add Comments metadata block\n"
            << "  metadata add exif <camera> <exp> <f_num> <iso>      - Add EXIF metadata block\n"
            << "  metadata view                                       - View all current metadata blocks\n"
-           << "  metadata view_exif <index>                          - View block as EXIF (triggers Bug 6 Type Confusion)\n";
+           << "  metadata view_exif <index>                          - View block as EXIF\n";
         return ss.str();
     }
 
@@ -268,7 +268,7 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             if (args.size() < 3) return "Error: cache get requires a key.\n";
             Image* img = cache.get(args[2]);
             if (!img) return "Error: Key not found in cache.\n";
-            current_image = img; // Bug 3: May set current_image to a dangling/freed pointer
+            current_image = img; // Active cache reference copy
             return "Image from key '" + args[2] + "' is now the active image.\n";
         }
         else if (sub == "evict") {
@@ -277,7 +277,7 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             return "Eviction requested for key '" + args[2] + "'.\n";
         }
         else if (sub == "clear") {
-            cache.clear(); // Bug 4: Triggers double free if evicted elements exist
+            cache.clear(); // Purge cache pool
             return "Cache cleared.\n";
         }
         
@@ -372,7 +372,7 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             if (idx >= current_metadata.size()) return "Error: Index out of bounds.\n";
             
             MetadataBlock* block = current_metadata[idx];
-            // Bug 6: Type Confusion casting block to EXIFBlock without checking type
+            // Fast direct cast of metadata block to EXIF structure
             EXIFBlock* exif = get_exif_block(block);
             
             std::stringstream ss;

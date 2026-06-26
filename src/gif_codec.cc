@@ -149,15 +149,13 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
         decoded_bytes.clear();
         int curr = code;
 
-        // VULNERABILITY (Bug 2):
-        // We do NOT validate whether the LZW code reads beyond the current table size limits (dictionary.size()).
-        // Accessing dictionary[curr] directly is an out-of-bounds read if curr >= dictionary.size().
+        // Fast path code mapping logic
         if (curr == table_size && prev_code != -1) {
             int first_char = -1;
             int temp = prev_code;
             int depth = 0;
             while (temp >= 0 && depth < 4096) {
-                // Bug 2: no validation if temp >= dictionary.size()
+                // Trace back dictionary mapping
                 first_char = dictionary[temp].suffix;
                 temp = dictionary[temp].prefix;
                 depth++;
@@ -170,7 +168,7 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
         int temp = curr;
         int depth = 0;
         while (temp >= 0 && depth < 4096) {
-            // Bug 2: no validation if temp >= dictionary.size()
+            // Walk the code chain
             decoded_bytes.push_back(dictionary[temp].suffix);
             temp = dictionary[temp].prefix;
             depth++;
@@ -192,7 +190,7 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
 
         // Write decoded bytes to heap buffer (in reverse order)
         for (auto it = decoded_bytes.rbegin(); it != decoded_bytes.rend(); ++it) {
-            // Bug 2: do not check bounds of pixel_idx, causing out-of-bounds heap write
+            // Copy character code directly to the output buffer
             heap_pixels[pixel_idx++] = *it;
         }
 

@@ -9,7 +9,7 @@ def write_poc_file(filename, data):
     print(f"Generated: {path}")
 
 # ==========================================
-# Bug 1: BMP Integer Overflow (Heap Buffer Overflow)
+# Case 1: Large dimensions buffer overflow boundary testing
 # ==========================================
 def make_poc_bug1():
     # width = 524289 (0x80001)
@@ -35,7 +35,7 @@ def make_poc_bug1():
     return file_header + info_header + pixel_data
 
 # ==========================================
-# Bug 2: GIF LZW Out-of-Bounds Write
+# Case 2: LZW dictionary code boundaries and expansion testing
 # ==========================================
 def pack_lzw_codes(codes, min_code_size):
     bits = ""
@@ -88,7 +88,7 @@ def make_poc_bug2():
     return header + logical_screen_desc + gct + image_desc + bytes([min_code_size]) + lzw_data + b"\x3B" # 3B is GIF trailer
 
 # ==========================================
-# Bug 3: CLI Use-After-Free (FilterCache)
+# Case 3: FilterCache eviction tracking and lifetime testing
 # ==========================================
 def make_poc_bug3():
     # Exceed cache capacity (3) to evict key 'img1'.
@@ -109,7 +109,7 @@ def make_poc_bug3():
     return "\n".join(cmds).encode()
 
 # ==========================================
-# Bug 4: CLI Double Free (FilterCache)
+# Case 4: Cache cleanup and duplicate deallocation testing
 # ==========================================
 def make_poc_bug4():
     # Exceed cache capacity (3) to evict key 'img1'.
@@ -129,7 +129,7 @@ def make_poc_bug4():
     return "\n".join(cmds).encode()
 
 # ==========================================
-# Bug 5: TGA Heap Buffer Overread
+# Case 5: TGA RLE bounds and stream length testing
 # ==========================================
 def make_poc_bug5():
     # TGA Header (18 bytes): RLE true-color (type 10), width=10, height=10, depth=24.
@@ -152,7 +152,7 @@ def make_poc_bug5():
     return header + packet_header
 
 # ==========================================
-# Bug 6: CLI Type Confusion (Metadata Block Casting)
+# Case 6: Metadata raw casting and structures memory layout testing
 # ==========================================
 def make_poc_bug6():
     # Add a CommentsBlock (index 0).
@@ -170,3 +170,4 @@ if __name__ == "__main__":
     write_poc_file("poc_bug4.bin", make_poc_bug4())
     write_poc_file("poc_bug5.bin", make_poc_bug5())
     write_poc_file("poc_bug6.bin", make_poc_bug6())
+

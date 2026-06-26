@@ -1,0 +1,9 @@
+pocs/
+*.exe
+*.o
+*.bin
+tests/*.exe
+tests/*.o
+.idea/
+.vscode/
+cmake-build-*/
