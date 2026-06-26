@@ -1,0 +1,30 @@
+======================================================================
+BUG DESCRIPTIONS FOR TASK SUBMISSIONS
+======================================================================
+Use these short, precise descriptions when submitting the tasks on the platform.
+They are under 80 words, name the bug class, file, function, and triggering condition, and do NOT reveal the fix.
+----------------------------------------------------------------------
+
+BUG 1 (Heap Buffer Overflow via Integer Overflow)
+-------------------------------------------------
+"A heap-buffer-overflow occurs in VFS::mount_archive in src/vfs.cc due to an integer overflow when calculating directory memory requirements. The crash is triggered when processing an archive header containing a large num_files value."
+
+BUG 2 (Heap Buffer Overflow / Out-of-Bounds Write)
+--------------------------------------------------
+"A heap-buffer-overflow occurs in VFS::decompress_rle in src/vfs.cc during run-length expansion. The overflow is triggered when parsing a compressed archive entry with run counts that exceed the declared original size boundaries."
+
+BUG 3 (Use-After-Free)
+----------------------
+"A heap-use-after-free occurs in VFS::read_file in src/vfs.cc. The vulnerability is triggered by deleting a VFS node and subsequently attempting to read from its active but stale file descriptor."
+
+BUG 4 (Double Free)
+-------------------
+"A heap-double-free occurs in VFS::clear_cache in src/vfs.cc. The crash is triggered by opening multiple file paths containing the substring 'double' to trigger cache eviction, followed by clearing the virtual file system cache."
+
+BUG 5 (Heap Buffer Overread)
+----------------------------
+"A heap-buffer-overflow read occurs in VFS::mount_archive in src/vfs.cc. The overread is triggered when mounting an archive directory entry containing a 32-character filename that lacks a null-terminator."
+
+BUG 6 (Type Confusion)
+----------------------
+"A type confusion crash occurs in VFS::read_file in src/vfs.cc. The crash is triggered when attempting to read from a file descriptor associated with a directory node whose name contains the substring '.raw'."
