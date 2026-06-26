@@ -12,9 +12,19 @@ $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/allocator.cc -o allocator.o
 $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/path_utils.cc -o path_utils.o
 $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/logger.cc -o logger.o
 $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/shell.cc -o shell.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_symlink.cc -o vfs_symlink.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_permissions.cc -o vfs_permissions.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/btree_index.cc -o btree_index.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/archive_writer.cc -o archive_writer.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/config_parser.cc -o config_parser.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/thread_pool.cc -o thread_pool.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/string_utils.cc -o string_utils.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/serializer.cc -o serializer.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_xattr.cc -o vfs_xattr.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_events.cc -o vfs_events.o
 
 # Object collection
-ALL_OBJS="vfs.o vfs_parser.o vfs_cache.o vfs_stats.o compression_rle.o compression_huffman.o compression_lzw.o checksum.o allocator.o path_utils.o logger.o shell.o"
+ALL_OBJS="vfs.o vfs_parser.o vfs_cache.o vfs_stats.o compression_rle.o compression_huffman.o compression_lzw.o checksum.o allocator.o path_utils.o logger.o shell.o vfs_symlink.o vfs_permissions.o btree_index.o archive_writer.o config_parser.o thread_pool.o string_utils.o serializer.o vfs_xattr.o vfs_events.o"
 
 # Link all harnesses
 $CXX $CXXFLAGS $LIB_FUZZING_ENGINE $SRC/fuzz/fuzz_mount.cc $ALL_OBJS -o $OUT/fuzz_mount
