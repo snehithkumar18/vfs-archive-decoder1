@@ -129,15 +129,18 @@ PixelForgeErrorCode Transform::Rotate(const Image& src, Image& dst, float angle)
     float cos_a = std::cos(rad);
     float sin_a = std::sin(rad);
 
+    float fw = static_cast<float>(w);
+    float fh = static_cast<float>(h);
+
     // Calculate new dimensions to fit the rotated image
-    float x1 = -w/2.0f * cos_a - -h/2.0f * sin_a;
-    float y1 = -w/2.0f * sin_a + -h/2.0f * cos_a;
-    float x2 =  w/2.0f * cos_a - -h/2.0f * sin_a;
-    float y2 =  w/2.0f * sin_a + -h/2.0f * cos_a;
-    float x3 =  w/2.0f * cos_a -  h/2.0f * sin_a;
-    float y3 =  w/2.0f * sin_a +  h/2.0f * cos_a;
-    float x4 = -w/2.0f * cos_a -  h/2.0f * sin_a;
-    float y4 = -w/2.0f * sin_a +  h/2.0f * cos_a;
+    float x1 = -fw/2.0f * cos_a - -fh/2.0f * sin_a;
+    float y1 = -fw/2.0f * sin_a + -fh/2.0f * cos_a;
+    float x2 =  fw/2.0f * cos_a - -fh/2.0f * sin_a;
+    float y2 =  fw/2.0f * sin_a + -fh/2.0f * cos_a;
+    float x3 =  fw/2.0f * cos_a -  fh/2.0f * sin_a;
+    float y3 =  fw/2.0f * sin_a +  fh/2.0f * cos_a;
+    float x4 = -fw/2.0f * cos_a -  fh/2.0f * sin_a;
+    float y4 = -fw/2.0f * sin_a +  fh/2.0f * cos_a;
 
     float min_x = std::min({x1, x2, x3, x4});
     float max_x = std::max({x1, x2, x3, x4});

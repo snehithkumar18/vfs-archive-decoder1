@@ -92,8 +92,9 @@ uint8_t Analysis::ComputeOtsuThreshold(const Image& src) {
     double wB = 0;
     double wF = 0;
 
-    double varMax = 0;
-    uint8_t threshold = 0;
+    double varMax = -1.0;
+    int first_best = -1;
+    int last_best = -1;
 
     for (int t = 0; t < 256; ++t) {
         wB += hist[t];
@@ -109,10 +110,18 @@ uint8_t Analysis::ComputeOtsuThreshold(const Image& src) {
 
         double varBetween = wB * wF * (mB - mF) * (mB - mF);
 
-        if (varBetween > varMax) {
+        if (varBetween > varMax + 1e-5) {
             varMax = varBetween;
-            threshold = static_cast<uint8_t>(t);
+            first_best = t;
+            last_best = t;
+        } else if (std::abs(varBetween - varMax) < 1e-5) {
+            last_best = t;
         }
+    }
+
+    uint8_t threshold = 128;
+    if (first_best != -1 && last_best != -1) {
+        threshold = static_cast<uint8_t>((first_best + last_best) / 2);
     }
 
     return threshold;

@@ -68,9 +68,9 @@ public:
     
     // Pixel format conversion helper
     PixelForgeErrorCode convertTo(PixelFormat targetFormat);
+    void sync();
 
 private:
-    void sync();
 
     uint32_t m_width{0};
     uint32_t m_height{0};

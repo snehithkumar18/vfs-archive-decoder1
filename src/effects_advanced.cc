@@ -1087,13 +1087,13 @@ PixelForgeErrorCode AdvancedEffects::ApplyColorMatrix(const Image& src, Image& d
         float outG = matrix[5] * r + matrix[6] * g + matrix[7] * b + matrix[8] * a + matrix[9] * 255.0f;
         float outB = matrix[10] * r + matrix[11] * g + matrix[12] * b + matrix[13] * a + matrix[14] * 255.0f;
 
-        dstData[i + 0] = static_cast<uint8_t>(std::clamp(outR / 255.0f, 0.0f, 255.0f));
-        dstData[i + 1] = static_cast<uint8_t>(std::clamp(outG / 255.0f, 0.0f, 255.0f));
-        dstData[i + 2] = static_cast<uint8_t>(std::clamp(outB / 255.0f, 0.0f, 255.0f));
+        dstData[i + 0] = static_cast<uint8_t>(std::clamp(outR, 0.0f, 255.0f));
+        dstData[i + 1] = static_cast<uint8_t>(std::clamp(outG, 0.0f, 255.0f));
+        dstData[i + 2] = static_cast<uint8_t>(std::clamp(outB, 0.0f, 255.0f));
 
         if (ch == 4) {
             float outA = matrix[15] * r + matrix[16] * g + matrix[17] * b + matrix[18] * a + matrix[19] * 255.0f;
-            dstData[i + 3] = static_cast<uint8_t>(std::clamp(outA / 255.0f, 0.0f, 255.0f));
+            dstData[i + 3] = static_cast<uint8_t>(std::clamp(outA, 0.0f, 255.0f));
         }
     }
 

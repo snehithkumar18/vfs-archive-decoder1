@@ -6,6 +6,7 @@
 #include "../src/drawing.h"
 #include "../src/analysis.h"
 #include "../src/effects.h"
+#include "../src/enhancement.h"
 #include "../src/thread_pool.h"
 #include "../src/logger.h"
 #include <iostream>

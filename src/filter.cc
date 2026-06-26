@@ -93,7 +93,7 @@ Image* apply_grayscale(const Image* src, FilterCache* cache, const std::string& 
     }
 
     VFSLogger::get_instance().info("Filter", "Applying grayscale filter");
-    Image* dst = new Image(src->width, src->height, src->channels);
+    Image* dst = new Image(src->width, src->height, PixelFormat::Grayscale);
     int total_pixels = src->width * src->height;
     
     if (src->channels >= 3) {
@@ -104,12 +104,7 @@ Image* apply_grayscale(const Image* src, FilterCache* cache, const std::string& 
             uint8_t b = src->data[idx + 2];
             uint8_t gray = static_cast<uint8_t>(0.299f * r + 0.587f * g + 0.114f * b);
             
-            dst->data[idx + 0] = gray;
-            dst->data[idx + 1] = gray;
-            dst->data[idx + 2] = gray;
-            for (int c = 3; c < src->channels; ++c) {
-                dst->data[idx + c] = src->data[idx + c]; // copy alpha etc.
-            }
+            dst->data[i] = gray;
         }
     } else {
         // Already 1 channel or similar, just copy
@@ -146,8 +141,8 @@ Image* apply_resize(const Image* src, int new_w, int new_h, FilterCache* cache, 
             int ix = static_cast<int>(std::floor(px));
             int iy = static_cast<int>(std::floor(py));
 
-            int ix_next = std::min(ix + 1, src->width - 1);
-            int iy_next = std::min(iy + 1, src->height - 1);
+            int ix_next = std::min(ix + 1, static_cast<int>(src->width) - 1);
+            int iy_next = std::min(iy + 1, static_cast<int>(src->height) - 1);
 
             float dx = px - ix;
             float dy = py - iy;
