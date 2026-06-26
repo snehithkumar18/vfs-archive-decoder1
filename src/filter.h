@@ -6,9 +6,9 @@
 #include <unordered_map>
 #include <cstdint>
 
-namespace PixelForge {
-
 #include "image.h"
+
+namespace PixelForge {
 
 class FilterCache {
 private:
