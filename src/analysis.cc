@@ -184,12 +184,9 @@ PixelForgeErrorCode Analysis::LabelComponents(const Image& src, Image& dst, uint
     uf.add_label(); // Label 0 is background
 
     // Grayscale source check
-    Image gray_src;
-    if (src.getFormat() != PixelFormat::Grayscale) {
-        src.convertTo(PixelFormat::Grayscale);
-        gray_src = src;
-    } else {
-        gray_src = src;
+    Image gray_src = src;
+    if (gray_src.getFormat() != PixelFormat::Grayscale) {
+        gray_src.convertTo(PixelFormat::Grayscale);
     }
     const auto& src_data = gray_src.getData();
 
