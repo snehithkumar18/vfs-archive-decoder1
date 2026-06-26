@@ -1056,5 +1056,243 @@ PixelForgeErrorCode AdvancedEffects::Kaleidoscope(const Image& src, Image& dst, 
     return PixelForgeErrorCode::SUCCESS;
 }
 
+PixelForgeErrorCode AdvancedEffects::ApplyColorMatrix(const Image& src, Image& dst, const float matrix[20]) {
+    if (!src.isValid()) {
+        Logger::getInstance().error("ColorMatrix: Invalid source image.");
+        return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
+    }
+
+    uint32_t w = src.getWidth();
+    uint32_t h = src.getHeight();
+    uint32_t ch = src.getChannels();
+
+    if (ch < 3) {
+        Logger::getInstance().error("ColorMatrix: Requires an RGB/RGBA image.");
+        return PixelForgeErrorCode::ERR_UNSUPPORTED_FORMAT;
+    }
+
+    PixelForgeErrorCode err = dst.allocate(w, h, src.getFormat());
+    if (err != PixelForgeErrorCode::SUCCESS) return err;
+
+    const auto& srcData = src.getData();
+    auto& dstData = dst.getData();
+
+    for (size_t i = 0; i < srcData.size(); i += ch) {
+        float r = srcData[i + 0];
+        float g = srcData[i + 1];
+        float b = srcData[i + 2];
+        float a = (ch == 4) ? srcData[i + 3] : 255.0f;
+
+        float outR = matrix[0] * r + matrix[1] * g + matrix[2] * b + matrix[3] * a + matrix[4] * 255.0f;
+        float outG = matrix[5] * r + matrix[6] * g + matrix[7] * b + matrix[8] * a + matrix[9] * 255.0f;
+        float outB = matrix[10] * r + matrix[11] * g + matrix[12] * b + matrix[13] * a + matrix[14] * 255.0f;
+
+        dstData[i + 0] = static_cast<uint8_t>(std::clamp(outR / 255.0f, 0.0f, 255.0f));
+        dstData[i + 1] = static_cast<uint8_t>(std::clamp(outG / 255.0f, 0.0f, 255.0f));
+        dstData[i + 2] = static_cast<uint8_t>(std::clamp(outB / 255.0f, 0.0f, 255.0f));
+
+        if (ch == 4) {
+            float outA = matrix[15] * r + matrix[16] * g + matrix[17] * b + matrix[18] * a + matrix[19] * 255.0f;
+            dstData[i + 3] = static_cast<uint8_t>(std::clamp(outA / 255.0f, 0.0f, 255.0f));
+        }
+    }
+
+    return PixelForgeErrorCode::SUCCESS;
+}
+
+PixelForgeErrorCode AdvancedEffects::GenerateMandelbrot(Image& dst, uint32_t width, uint32_t height, double minX, double maxX, double minY, double maxY, uint32_t maxIterations) {
+    if (width == 0 || height == 0 || maxIterations == 0) {
+        Logger::getInstance().error("Mandelbrot: Invalid parameters.");
+        return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
+    }
+
+    PixelForgeErrorCode err = dst.allocate(width, height, PixelFormat::RGB888);
+    if (err != PixelForgeErrorCode::SUCCESS) return err;
+
+    auto& dstData = dst.getData();
+
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            double cr = minX + (static_cast<double>(x) / width) * (maxX - minX);
+            double ci = minY + (static_cast<double>(y) / height) * (maxY - minY);
+
+            double zr = 0.0;
+            double zi = 0.0;
+            uint32_t iter = 0;
+
+            while (zr * zr + zi * zi <= 4.0 && iter < maxIterations) {
+                double temp = zr * zr - zi * zi + cr;
+                zi = 2.0 * zr * zi + ci;
+                zr = temp;
+                iter++;
+            }
+
+            size_t idx = (y * width + x) * 3;
+            if (iter == maxIterations) {
+                dstData[idx + 0] = 0;
+                dstData[idx + 1] = 0;
+                dstData[idx + 2] = 0;
+            } else {
+                // Generate a smooth color scheme based on escape iterations
+                double mu = static_cast<double>(iter) / maxIterations;
+                dstData[idx + 0] = static_cast<uint8_t>(std::clamp(std::sin(mu * 3.0 + 1.0) * 127.0 + 128.0, 0.0, 255.0));
+                dstData[idx + 1] = static_cast<uint8_t>(std::clamp(std::sin(mu * 5.0 + 2.0) * 127.0 + 128.0, 0.0, 255.0));
+                dstData[idx + 2] = static_cast<uint8_t>(std::clamp(std::sin(mu * 7.0 + 4.0) * 127.0 + 128.0, 0.0, 255.0));
+            }
+        }
+    }
+
+    return PixelForgeErrorCode::SUCCESS;
+}
+
+PixelForgeErrorCode AdvancedEffects::GenerateJulia(Image& dst, uint32_t width, uint32_t height, double cr, double ci, double minX, double maxX, double minY, double maxY, uint32_t maxIterations) {
+    if (width == 0 || height == 0 || maxIterations == 0) {
+        Logger::getInstance().error("Julia: Invalid parameters.");
+        return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
+    }
+
+    PixelForgeErrorCode err = dst.allocate(width, height, PixelFormat::RGB888);
+    if (err != PixelForgeErrorCode::SUCCESS) return err;
+
+    auto& dstData = dst.getData();
+
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            double zr = minX + (static_cast<double>(x) / width) * (maxX - minX);
+            double zi = minY + (static_cast<double>(y) / height) * (maxY - minY);
+            uint32_t iter = 0;
+
+            while (zr * zr + zi * zi <= 4.0 && iter < maxIterations) {
+                double temp = zr * zr - zi * zi + cr;
+                zi = 2.0 * zr * zi + ci;
+                zr = temp;
+                iter++;
+            }
+
+            size_t idx = (y * width + x) * 3;
+            if (iter == maxIterations) {
+                dstData[idx + 0] = 0;
+                dstData[idx + 1] = 0;
+                dstData[idx + 2] = 0;
+            } else {
+                double mu = static_cast<double>(iter) / maxIterations;
+                dstData[idx + 0] = static_cast<uint8_t>(std::clamp(std::sin(mu * 4.0 + 0.5) * 127.0 + 128.0, 0.0, 255.0));
+                dstData[idx + 1] = static_cast<uint8_t>(std::clamp(std::sin(mu * 6.0 + 1.5) * 127.0 + 128.0, 0.0, 255.0));
+                dstData[idx + 2] = static_cast<uint8_t>(std::clamp(std::sin(mu * 9.0 + 3.0) * 127.0 + 128.0, 0.0, 255.0));
+            }
+        }
+    }
+
+    return PixelForgeErrorCode::SUCCESS;
+}
+
+PixelForgeErrorCode AdvancedEffects::ColorHalftone(const Image& src, Image& dst, uint32_t dotSize, float angleC, float angleM, float angleY, float angleK) {
+    if (!src.isValid() || dotSize == 0) {
+        Logger::getInstance().error("ColorHalftone: Invalid parameters.");
+        return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
+    }
+
+    uint32_t w = src.getWidth();
+    uint32_t h = src.getHeight();
+    uint32_t ch = src.getChannels();
+
+    if (ch < 3) {
+        Logger::getInstance().error("ColorHalftone: Requires an RGB/RGBA image.");
+        return PixelForgeErrorCode::ERR_UNSUPPORTED_FORMAT;
+    }
+
+    PixelForgeErrorCode err = dst.allocate(w, h, src.getFormat());
+    if (err != PixelForgeErrorCode::SUCCESS) return err;
+
+    const auto& srcData = src.getData();
+    auto& dstData = dst.getData();
+
+    // Setup helper vectors for rotated screen grids
+    struct Screen {
+        float cosA;
+        float sinA;
+    };
+
+    auto initScreen = [](float angleDeg) -> Screen {
+        float rad = angleDeg * 3.14159265f / 180.0f;
+        return {std::cos(rad), std::sin(rad)};
+    };
+
+    Screen screenC = initScreen(angleC);
+    Screen screenM = initScreen(angleM);
+    Screen screenY = initScreen(angleY);
+    Screen screenK = initScreen(angleK);
+
+    // Grid checker helper
+    auto getHalftoneDot = [w, h, dotSize](int32_t px, int32_t py, float intensity, Screen screen) -> bool {
+        if (intensity <= 0.0f) return false;
+        
+        // Center mapping relative to local grid
+        float rx = px * screen.cosA - py * screen.sinA;
+        float ry = px * screen.sinA + py * screen.cosA;
+
+        // Locate cell grid coordinates
+        float gridCellX = std::floor(rx / dotSize) * dotSize + dotSize / 2.0f;
+        float gridCellY = std::floor(ry / dotSize) * dotSize + dotSize / 2.0f;
+
+        float dist = std::sqrt((rx - gridCellX) * (rx - gridCellX) + (ry - gridCellY) * (ry - gridCellY));
+        float maxRadius = (dotSize / 2.0f) * std::sqrt(intensity);
+
+        return dist <= maxRadius;
+    };
+
+    for (uint32_t y = 0; y < h; ++y) {
+        for (uint32_t x = 0; x < w; ++x) {
+            size_t idx = (y * w + x) * ch;
+
+            // RGB to CMYK Conversion
+            float r = srcData[idx + 0] / 255.0f;
+            float g = srcData[idx + 1] / 255.0f;
+            float b = srcData[idx + 2] / 255.0f;
+
+            float cyan = 1.0f - r;
+            float magenta = 1.0f - g;
+            float yellow = 1.0f - b;
+            float key = std::min(cyan, std::min(magenta, yellow));
+
+            if (key < 1.0f) {
+                cyan = (cyan - key) / (1.0f - key);
+                magenta = (magenta - key) / (1.0f - key);
+                yellow = (yellow - key) / (1.0f - key);
+            } else {
+                cyan = magenta = yellow = 0.0f;
+            }
+
+            // Apply rotated halftone screens for each channel
+            bool dotC = getHalftoneDot(x, y, cyan, screenC);
+            bool dotM = getHalftoneDot(x, y, magenta, screenM);
+            bool dotY = getHalftoneDot(x, y, yellow, screenY);
+            bool dotK = getHalftoneDot(x, y, key, screenK);
+
+            // CMYK combination back to RGB (Subtract ink)
+            float outC = dotC ? 1.0f : 0.0f;
+            float outM = dotM ? 1.0f : 0.0f;
+            float outY = dotY ? 1.0f : 0.0f;
+            float outK = dotK ? 1.0f : 0.0f;
+
+            // Apply CMYK blending
+            float rc = (1.0f - outC) * (1.0f - outK);
+            float gc = (1.0f - outM) * (1.0f - outK);
+            float bc = (1.0f - outY) * (1.0f - outK);
+
+            dstData[idx + 0] = static_cast<uint8_t>(rc * 255.0f);
+            dstData[idx + 1] = static_cast<uint8_t>(gc * 255.0f);
+            dstData[idx + 2] = static_cast<uint8_t>(bc * 255.0f);
+
+            if (ch == 4) {
+                dstData[idx + 3] = srcData[idx + 3];
+            }
+        }
+    }
+
+    return PixelForgeErrorCode::SUCCESS;
+}
+
 } // namespace PixelForge
+
 

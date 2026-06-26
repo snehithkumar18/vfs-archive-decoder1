@@ -353,6 +353,36 @@ void run_effects_benchmarks() {
     end = std::chrono::high_resolution_clock::now();
     ms = end - start;
     std::cout << "Kaleidoscope filter (512x512):    " << ms.count() << " ms" << std::endl;
+
+    start = std::chrono::high_resolution_clock::now();
+    float testMatrix[20] = {
+        0.393f, 0.769f, 0.189f, 0.0f, 0.0f,
+        0.349f, 0.686f, 0.168f, 0.0f, 0.0f,
+        0.272f, 0.534f, 0.131f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f, 0.0f
+    };
+    AdvancedEffects::ApplyColorMatrix(benchImg, out, testMatrix);
+    end = std::chrono::high_resolution_clock::now();
+    ms = end - start;
+    std::cout << "Color Matrix transform (512x512): " << ms.count() << " ms" << std::endl;
+
+    start = std::chrono::high_resolution_clock::now();
+    AdvancedEffects::GenerateMandelbrot(out, 512, 512, -2.0, 0.5, -1.25, 1.25, 100);
+    end = std::chrono::high_resolution_clock::now();
+    ms = end - start;
+    std::cout << "Mandelbrot Generation (512x512):  " << ms.count() << " ms" << std::endl;
+
+    start = std::chrono::high_resolution_clock::now();
+    AdvancedEffects::GenerateJulia(out, 512, 512, -0.7, 0.27015, -1.5, 1.5, -1.5, 1.5, 100);
+    end = std::chrono::high_resolution_clock::now();
+    ms = end - start;
+    std::cout << "Julia Set Generation (512x512):   " << ms.count() << " ms" << std::endl;
+
+    start = std::chrono::high_resolution_clock::now();
+    AdvancedEffects::ColorHalftone(benchImg, out, 6, 15.0f, 75.0f, 0.0f, 45.0f);
+    end = std::chrono::high_resolution_clock::now();
+    ms = end - start;
+    std::cout << "Color Halftoning (512x512):       " << ms.count() << " ms" << std::endl;
     
     std::cout << "==============================================\n" << std::endl;
 }
@@ -412,6 +442,55 @@ void test_kaleidoscope() {
     std::cout << "test_kaleidoscope passed." << std::endl;
 }
 
+void test_color_matrix() {
+    std::cout << "Running test_color_matrix..." << std::endl;
+    Image src = create_gradient_image(32, 32);
+    Image dst;
+    // Simple identity matrix
+    float matrix[20] = {
+        1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f, 0.0f
+    };
+    PixelForgeErrorCode err = AdvancedEffects::ApplyColorMatrix(src, dst, matrix);
+    assert(err == PixelForgeErrorCode::SUCCESS);
+    assert(dst.getWidth() == 32);
+    assert(dst.getHeight() == 32);
+    
+    // Output must match source
+    const auto& srcData = src.getData();
+    const auto& dstData = dst.getData();
+    assert(srcData == dstData);
+    std::cout << "test_color_matrix passed." << std::endl;
+}
+
+void test_fractals() {
+    std::cout << "Running test_fractals..." << std::endl;
+    Image mandel, julia;
+    PixelForgeErrorCode err = AdvancedEffects::GenerateMandelbrot(mandel, 64, 64, -2.0, 0.5, -1.25, 1.25, 50);
+    assert(err == PixelForgeErrorCode::SUCCESS);
+    assert(mandel.getWidth() == 64);
+    assert(mandel.getHeight() == 64);
+
+    err = AdvancedEffects::GenerateJulia(julia, 64, 64, -0.7, 0.27015, -1.5, 1.5, -1.5, 1.5, 50);
+    assert(err == PixelForgeErrorCode::SUCCESS);
+    assert(julia.getWidth() == 64);
+    assert(julia.getHeight() == 64);
+    std::cout << "test_fractals passed." << std::endl;
+}
+
+void test_color_halftone() {
+    std::cout << "Running test_color_halftone..." << std::endl;
+    Image src = create_gradient_image(64, 64);
+    Image dst;
+    PixelForgeErrorCode err = AdvancedEffects::ColorHalftone(src, dst, 4, 15.0f, 75.0f, 0.0f, 45.0f);
+    assert(err == PixelForgeErrorCode::SUCCESS);
+    assert(dst.getWidth() == 64);
+    assert(dst.getHeight() == 64);
+    std::cout << "test_color_halftone passed." << std::endl;
+}
+
 int main() {
     std::cout << "Starting Advanced Effects Tests..." << std::endl;
 
@@ -428,6 +507,9 @@ int main() {
     test_anaglyph3d();
     test_ascii_art();
     test_kaleidoscope();
+    test_color_matrix();
+    test_fractals();
+    test_color_halftone();
 
     std::cout << "All Advanced Effects tests passed successfully!" << std::endl;
 
@@ -435,4 +517,5 @@ int main() {
 
     return 0;
 }
+
 

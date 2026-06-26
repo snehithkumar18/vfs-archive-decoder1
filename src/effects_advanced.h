@@ -68,6 +68,18 @@ public:
 
     // Kaleidoscope effect (mirrors 1/8th of the image across the entire canvas)
     static PixelForgeErrorCode Kaleidoscope(const Image& src, Image& dst, uint32_t centersCount);
+
+    // Color Matrix Filter (applies a 5x4 transformation matrix to colors)
+    static PixelForgeErrorCode ApplyColorMatrix(const Image& src, Image& dst, const float matrix[20]);
+
+    // Mandelbrot Fractal Generator
+    static PixelForgeErrorCode GenerateMandelbrot(Image& dst, uint32_t width, uint32_t height, double minX, double maxX, double minY, double maxY, uint32_t maxIterations);
+
+    // Julia Fractal Generator
+    static PixelForgeErrorCode GenerateJulia(Image& dst, uint32_t width, uint32_t height, double cr, double ci, double minX, double maxX, double minY, double maxY, uint32_t maxIterations);
+
+    // Color Halftone (Cyan, Magenta, Yellow, Black individual halftone channels)
+    static PixelForgeErrorCode ColorHalftone(const Image& src, Image& dst, uint32_t dotSize, float angleC, float angleM, float angleY, float angleK);
 };
 
 } // namespace PixelForge
