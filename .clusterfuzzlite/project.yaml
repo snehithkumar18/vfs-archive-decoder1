@@ -1,5 +1,5 @@
 fuzz_targets:
-  - fuzz_mount
-  - fuzz_extract
-  - fuzz_vfs
-  - fuzz_shell
+  - fuzz_bmp
+  - fuzz_tga
+  - fuzz_gif
+  - fuzz_imgtool

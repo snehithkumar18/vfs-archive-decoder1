@@ -1,33 +1,34 @@
 #!/bin/bash -eu
 # Compile all core source files
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs.cc -o vfs.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_parser.cc -o vfs_parser.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_cache.cc -o vfs_cache.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_stats.cc -o vfs_stats.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/compression_rle.cc -o compression_rle.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/compression_huffman.cc -o compression_huffman.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/compression_lzw.cc -o compression_lzw.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/checksum.cc -o checksum.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/image.cc -o image.o
 $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/allocator.cc -o allocator.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/path_utils.cc -o path_utils.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/logger.cc -o logger.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/shell.cc -o shell.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_symlink.cc -o vfs_symlink.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_permissions.cc -o vfs_permissions.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/btree_index.cc -o btree_index.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/archive_writer.cc -o archive_writer.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/bmp_codec.cc -o bmp_codec.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/tga_codec.cc -o tga_codec.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/gif_codec.cc -o gif_codec.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/ppm_codec.cc -o ppm_codec.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/math_utils.cc -o math_utils.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/convolution.cc -o convolution.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/transform.cc -o transform.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/histogram.cc -o histogram.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/drawing.cc -o drawing.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/analysis.cc -o analysis.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/effects.cc -o effects.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/effects_advanced.cc -o effects_advanced.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/enhancement.cc -o enhancement.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/filter.cc -o filter.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/metadata.cc -o metadata.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/imgtool_cli.cc -o imgtool_cli.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/string_utils.cc -o string_utils.o
 $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/config_parser.cc -o config_parser.o
 $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/thread_pool.cc -o thread_pool.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/string_utils.cc -o string_utils.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/serializer.cc -o serializer.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_xattr.cc -o vfs_xattr.o
-$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/vfs_events.cc -o vfs_events.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/logger.cc -o logger.o
 
 # Object collection
-ALL_OBJS="vfs.o vfs_parser.o vfs_cache.o vfs_stats.o compression_rle.o compression_huffman.o compression_lzw.o checksum.o allocator.o path_utils.o logger.o shell.o vfs_symlink.o vfs_permissions.o btree_index.o archive_writer.o config_parser.o thread_pool.o string_utils.o serializer.o vfs_xattr.o vfs_events.o"
+ALL_OBJS="image.o allocator.o bmp_codec.o tga_codec.o gif_codec.o ppm_codec.o math_utils.o convolution.o transform.o histogram.o drawing.o analysis.o effects.o effects_advanced.o enhancement.o filter.o metadata.o imgtool_cli.o string_utils.o config_parser.o thread_pool.o logger.o"
 
 # Link all harnesses
-$CXX $CXXFLAGS $LIB_FUZZING_ENGINE $SRC/fuzz/fuzz_mount.cc $ALL_OBJS -o $OUT/fuzz_mount
-$CXX $CXXFLAGS $LIB_FUZZING_ENGINE $SRC/fuzz/fuzz_extract.cc $ALL_OBJS -o $OUT/fuzz_extract
-$CXX $CXXFLAGS $LIB_FUZZING_ENGINE $SRC/fuzz/fuzz_vfs.cc $ALL_OBJS -o $OUT/fuzz_vfs
-$CXX $CXXFLAGS $LIB_FUZZING_ENGINE $SRC/fuzz/fuzz_shell.cc $ALL_OBJS -o $OUT/fuzz_shell
+$CXX $CXXFLAGS $LIB_FUZZING_ENGINE $SRC/fuzz/fuzz_bmp.cc $ALL_OBJS -o $OUT/fuzz_bmp
+$CXX $CXXFLAGS $LIB_FUZZING_ENGINE $SRC/fuzz/fuzz_tga.cc $ALL_OBJS -o $OUT/fuzz_tga
+$CXX $CXXFLAGS $LIB_FUZZING_ENGINE $SRC/fuzz/fuzz_gif.cc $ALL_OBJS -o $OUT/fuzz_gif
+$CXX $CXXFLAGS $LIB_FUZZING_ENGINE $SRC/fuzz/fuzz_imgtool.cc $ALL_OBJS -o $OUT/fuzz_imgtool
+

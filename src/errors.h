@@ -3,41 +3,33 @@
 
 #include <string>
 
-enum class VFSErrorCode {
+namespace PixelForge {
+
+enum class PixelForgeErrorCode {
     SUCCESS = 0,
-    ERROR_GENERIC = 1,
-    ERROR_NOT_FOUND = 2,
-    ERROR_EXISTS = 3,
-    ERROR_INVALID_PATH = 4,
-    ERROR_NOT_DIR = 5,
-    ERROR_NOT_FILE = 6,
-    ERROR_INVALID_HEADER = 7,
-    ERROR_CHECKSUM_MISMATCH = 8,
-    ERROR_DECOMPRESSION_FAILED = 9,
-    ERROR_OUT_OF_MEMORY = 10,
-    ERROR_INVALID_FD = 11,
-    ERROR_ACCESS_DENIED = 12,
-    ERROR_CACHE_FULL = 13
+    ERR_INVALID_PARAMETER = 1,
+    ERR_UNSUPPORTED_FORMAT = 2,
+    ERR_OUT_OF_MEMORY = 3,
+    ERR_OUT_OF_BOUNDS = 4,
+    ERR_DECODING_FAILED = 5,
+    ERR_ENCODING_FAILED = 6,
+    ERR_GENERIC = 7
 };
 
-inline std::string error_to_string(VFSErrorCode code) {
+inline std::string error_to_string(PixelForgeErrorCode code) {
     switch (code) {
-        case VFSErrorCode::SUCCESS: return "Success";
-        case VFSErrorCode::ERROR_GENERIC: return "Generic Error";
-        case VFSErrorCode::ERROR_NOT_FOUND: return "File or Directory Not Found";
-        case VFSErrorCode::ERROR_EXISTS: return "File or Directory Already Exists";
-        case VFSErrorCode::ERROR_INVALID_PATH: return "Invalid Path format";
-        case VFSErrorCode::ERROR_NOT_DIR: return "Target is not a directory";
-        case VFSErrorCode::ERROR_NOT_FILE: return "Target is not a file";
-        case VFSErrorCode::ERROR_INVALID_HEADER: return "Invalid Archive Header";
-        case VFSErrorCode::ERROR_CHECKSUM_MISMATCH: return "Archive Checksum Mismatch";
-        case VFSErrorCode::ERROR_DECOMPRESSION_FAILED: return "Data Decompression Failed";
-        case VFSErrorCode::ERROR_OUT_OF_MEMORY: return "Out of Memory";
-        case VFSErrorCode::ERROR_INVALID_FD: return "Invalid File Descriptor";
-        case VFSErrorCode::ERROR_ACCESS_DENIED: return "Access Denied";
-        case VFSErrorCode::ERROR_CACHE_FULL: return "LRU Cache Capacity Exceeded";
+        case PixelForgeErrorCode::SUCCESS: return "Success";
+        case PixelForgeErrorCode::ERR_INVALID_PARAMETER: return "Invalid Parameter";
+        case PixelForgeErrorCode::ERR_UNSUPPORTED_FORMAT: return "Unsupported Format";
+        case PixelForgeErrorCode::ERR_OUT_OF_MEMORY: return "Out of Memory";
+        case PixelForgeErrorCode::ERR_OUT_OF_BOUNDS: return "Out of Bounds";
+        case PixelForgeErrorCode::ERR_DECODING_FAILED: return "Decoding Failed";
+        case PixelForgeErrorCode::ERR_ENCODING_FAILED: return "Encoding Failed";
+        case PixelForgeErrorCode::ERR_GENERIC: return "Generic Error";
         default: return "Unknown Error Code";
     }
 }
+
+} // namespace PixelForge
 
 #endif // ERRORS_H
