@@ -20,7 +20,7 @@ struct DirectoryEntry {
     uint32_t size;          // Compressed size
     uint32_t original_size; // Original size
     uint32_t offset;        // Offset of file data
-    uint8_t compression;    // 0 = None, 1 = RLE
+    uint8_t compression;    // 0 = None, 1 = RLE, 2 = Huffman
     uint32_t checksum;      // Simple checksum
 };
 #pragma pack(pop)
@@ -72,20 +72,22 @@ private:
     CacheNode* cache_tail;
     size_t cache_capacity;
 
-    void decompress_rle(const uint8_t* src, size_t src_len, uint8_t* dst, size_t dst_len); // Bug 2
     VFSNode* lookup_node(const std::string& path);
     void add_node_to_tree(const std::string& path, std::unique_ptr<VFSNode> node);
 
 public:
+    friend class VFSStats;
+
     VFS();
     ~VFS();
 
-    bool mount_archive(const uint8_t* data, size_t size); // Bug 1, 5
+    bool mount_archive(const uint8_t* data, size_t size); // Bug 1, 5 (implemented in vfs_parser.cc)
     int open_file(const std::string& path);
     int read_file(int fd, uint8_t* buf, size_t len); // Bug 6: Type confusion
     bool delete_file(const std::string& path); // Bug 3: Leaves dangling pointer in open_fds
+    std::vector<std::string> list_directory(const std::string& path);
     void access_file_cache(const std::string& path, FileNode* file);
-    void evict_cache(); // Bug 4: Double free
+    void evict_cache(); // Bug 4: Double free (implemented in vfs_cache.cc)
     void clear_cache();
 };
 

@@ -2,3 +2,4 @@ fuzz_targets:
   - fuzz_mount
   - fuzz_extract
   - fuzz_vfs
+  - fuzz_shell
