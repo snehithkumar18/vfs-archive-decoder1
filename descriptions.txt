@@ -7,7 +7,7 @@ They are under 80 words, name the bug class, file, function, and triggering cond
 
 BUG 1 (Heap Use-After-Free)
 ---------------------------
-"A heap-use-after-free occurs in PixelForge::BMPCodec::Decode in src/bmp_codec.cc. The vulnerability is triggered by decoding a BMP file with a specific resolution value (biXPelsPerMeter), caching a raw pointer to its pixel buffer, destroying the decoded image, and subsequently decoding a second BMP file that triggers a compositing operation using the cached dangling pointer."
+"A heap-use-after-free occurs in PixelForge::BMPCodec::Decode in src/bmp_codec.cc. It is triggered by decoding two sequential BMPs with a specific resolution, using a cached dangling pointer."
 
 BUG 2 (Heap Buffer Overflow / Out-of-Bounds Write)
 --------------------------------------------------
