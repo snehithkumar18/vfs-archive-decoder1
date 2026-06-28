@@ -5,9 +5,9 @@ Use these short, precise descriptions when submitting the tasks on the platform.
 They are under 80 words, name the bug class, file, function, and triggering condition, and do NOT reveal the fix.
 ----------------------------------------------------------------------
 
-BUG 1 (Heap Buffer Overflow via Integer Overflow)
--------------------------------------------------
-"A heap-buffer-overflow occurs in PixelForge::BMPCodec::Decode in src/bmp_codec.cc due to an integer overflow when calculating pixel buffer memory requirements. The crash is triggered when processing a BMP file with large width and height values."
+BUG 1 (Heap Use-After-Free)
+---------------------------
+"A heap-use-after-free occurs in PixelForge::BMPCodec::Decode in src/bmp_codec.cc. The vulnerability is triggered by decoding a BMP file with a specific resolution value (biXPelsPerMeter), caching a raw pointer to its pixel buffer, destroying the decoded image, and subsequently decoding a second BMP file that triggers a compositing operation using the cached dangling pointer."
 
 BUG 2 (Heap Buffer Overflow / Out-of-Bounds Write)
 --------------------------------------------------
