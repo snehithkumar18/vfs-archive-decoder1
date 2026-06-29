@@ -1,0 +1,112 @@
+diff --git a/src/gif_codec.cc b/src/gif_codec.cc
+index 298fb8b..7417885 100644
+--- a/src/gif_codec.cc
++++ b/src/gif_codec.cc
+@@ -111,17 +111,19 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
+         uint8_t suffix = 0;
+     };
+ 
+-    std::vector<DictEntry> dictionary;
++    std::vector<DictEntry*> dictionary;
+ 
+     auto reset_table = [&]() {
++        for (auto entry : dictionary) {
++            delete entry;
++        }
+         dictionary.clear();
+-        dictionary.resize(clear_code + 2);
++        dictionary.resize(clear_code + 2, nullptr);
+         for (int i = 0; i < clear_code; ++i) {
+-            dictionary[i].prefix = -1;
+-            dictionary[i].suffix = static_cast<uint8_t>(i);
++            dictionary[i] = new DictEntry{-1, static_cast<uint8_t>(i)};
+         }
+-        dictionary[clear_code] = {-1, 0};
+-        dictionary[clear_code + 1] = {-1, 0};
++        dictionary[clear_code] = new DictEntry{-1, 0};
++        dictionary[clear_code + 1] = new DictEntry{-1, 0};
+         
+         table_size = clear_code + 2;
+         code_size = min_code_size + 1;
+@@ -149,15 +151,30 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
+         decoded_bytes.clear();
+         int curr = code;
+ 
++        if (curr > table_size) {
++            delete[] heap_pixels;
++            for (auto entry : dictionary) {
++                delete entry;
++            }
++            return false;
++        }
++
+         // Fast path code mapping logic
+         if (curr == table_size && prev_code != -1) {
+             int first_char = -1;
+             int temp = prev_code;
+             int depth = 0;
+             while (temp >= 0 && depth < 4096) {
++                if (temp >= static_cast<int>(dictionary.size()) || !dictionary[temp]) {
++                    delete[] heap_pixels;
++                    for (auto entry : dictionary) {
++                        delete entry;
++                    }
++                    return false;
++                }
+                 // Trace back dictionary mapping
+-                first_char = dictionary[temp].suffix;
+-                temp = dictionary[temp].prefix;
++                first_char = dictionary[temp]->suffix;
++                temp = dictionary[temp]->prefix;
+                 depth++;
+             }
+             decoded_bytes.push_back(static_cast<uint8_t>(first_char));
+@@ -168,9 +185,16 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
+         int temp = curr;
+         int depth = 0;
+         while (temp >= 0 && depth < 4096) {
++            if (temp >= static_cast<int>(dictionary.size()) || !dictionary[temp]) {
++                delete[] heap_pixels;
++                for (auto entry : dictionary) {
++                    delete entry;
++                }
++                return false;
++            }
+             // Walk the code chain
+-            decoded_bytes.push_back(dictionary[temp].suffix);
+-            temp = dictionary[temp].prefix;
++            decoded_bytes.push_back(dictionary[temp]->suffix);
++            temp = dictionary[temp]->prefix;
+             depth++;
+         }
+ 
+@@ -180,7 +204,7 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
+             if (!decoded_bytes.empty()) {
+                 first_char = decoded_bytes.back();
+             }
+-            dictionary.push_back({prev_code, static_cast<uint8_t>(first_char)});
++            dictionary.push_back(new DictEntry{prev_code, static_cast<uint8_t>(first_char)});
+             table_size++;
+ 
+             if (table_size == (1 << code_size) && code_size < 12) {
+@@ -190,6 +214,9 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
+ 
+         // Write decoded bytes to heap buffer (in reverse order)
+         for (auto it = decoded_bytes.rbegin(); it != decoded_bytes.rend(); ++it) {
++            if (pixel_idx >= total_pixels) {
++                break;
++            }
+             // Copy character code directly to the output buffer
+             heap_pixels[pixel_idx++] = *it;
+         }
+@@ -201,6 +228,10 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
+     std::memcpy(out_pixels.data(), heap_pixels, copy_size);
+     delete[] heap_pixels;
+ 
++    for (auto entry : dictionary) {
++        delete entry;
++    }
++
+     stream.SkipRemainingBlocks();
+     return true;
+ }

@@ -1,0 +1,38 @@
+diff --git a/src/storage.cc b/src/storage.cc
+index c639009..d92e4b7 100644
+--- a/src/storage.cc
++++ b/src/storage.cc
+@@ -46,7 +46,9 @@ uint32_t Page::get_page_id() const {
+ }
+ 
+ uint16_t Page::get_num_records() const {
+-    return read_u16(data + 4);
++    uint16_t num = read_u16(data + 4);
++    if (num > 500) return 500; // Safety cap to prevent stack/buffer overflow
++    return num;
+ }
+ 
+ uint16_t Page::get_free_space() const {
+@@ -110,7 +112,7 @@ DBErrorCode Page::get_record(uint16_t slot_id, std::vector<uint8_t>& record_data
+     uint16_t offset = read_u16(slot_ptr);
+     uint16_t length = read_u16(slot_ptr + 2);
+ 
+-    if (offset == 0 || offset >= PAGE_SIZE) {
++    if (offset == 0 || offset >= PAGE_SIZE || offset + length > PAGE_SIZE) {
+         return DBErrorCode::ERR_RECORD_NOT_FOUND;
+     }
+ 
+@@ -151,6 +153,13 @@ void Page::compact() {
+         uint16_t length = read_u16(slot_ptr + 2);
+ 
+         if (offset != 0) {
++            uint16_t slots_end = 8 + num_slots * sizeof(Slot);
++            if (offset < slots_end || offset + length > PAGE_SIZE || length > temp_offset || temp_offset - length < slots_end) {
++                // Corrupted slot, skip and mark as deleted
++                write_u16(slot_ptr, 0);
++                write_u16(slot_ptr + 2, 0);
++                continue;
++            }
+             temp_offset -= length;
+             std::memcpy(temp + temp_offset, data + offset, length);
+             write_u16(slot_ptr, temp_offset);

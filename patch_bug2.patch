@@ -1,0 +1,55 @@
+diff --git a/src/query.cc b/src/query.cc
+index 4f78455..82ad15b 100644
+--- a/src/query.cc
++++ b/src/query.cc
+@@ -90,17 +90,17 @@ Variant& Variant::operator=(Variant&& other) noexcept {
+ }
+ 
+ int Variant::get_int() const {
+-    if (!val_ptr) return 0;
++    if (type != VariantType::INT || !val_ptr) return 0;
+     return *static_cast<int*>(val_ptr);
+ }
+ 
+ std::string Variant::get_string() const {
+-    if (!val_ptr) return "";
++    if (type != VariantType::STRING || !val_ptr) return "";
+     return *static_cast<std::string*>(val_ptr);
+ }
+ 
+ bool Variant::get_bool() const {
+-    if (!val_ptr) return false;
++    if (type != VariantType::BOOL || !val_ptr) return false;
+     return *static_cast<bool*>(val_ptr);
+ }
+ 
+@@ -231,21 +231,23 @@ bool QueryEvaluator::evaluate(const Document& doc, const QueryNode& query) {
+     }
+ 
+     if (query.value.type == VariantType::INT) {
+-        int doc_int = doc_val.get_int(); // Type confusion occurs here!
++        if (doc_val.type != VariantType::INT) return false;
++        int doc_int = doc_val.get_int();
+         int query_int = query.value.get_int();
+-
+         if (query.op == QueryOp::EQ) return doc_int == query_int;
+         if (query.op == QueryOp::GT) return doc_int > query_int;
+         if (query.op == QueryOp::LT) return doc_int < query_int;
+     } else if (query.value.type == VariantType::STRING) {
+-        std::string doc_str = doc_val.get_string(); // Type confusion occurs here!
++        if (doc_val.type != VariantType::STRING) return false;
++        std::string doc_str = doc_val.get_string();
+         std::string query_str = query.value.get_string();
+-
+         if (query.op == QueryOp::EQ) return doc_str == query_str;
++        if (query.op == QueryOp::GT) return doc_str > query_str;
++        if (query.op == QueryOp::LT) return doc_str < query_str;
+     } else if (query.value.type == VariantType::BOOL) {
+-        bool doc_bool = doc_val.get_bool(); // Type confusion occurs here!
++        if (doc_val.type != VariantType::BOOL) return false;
++        bool doc_bool = doc_val.get_bool();
+         bool query_bool = query.value.get_bool();
+-
+         if (query.op == QueryOp::EQ) return doc_bool == query_bool;
+     }
+     return false;

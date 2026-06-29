@@ -1,0 +1,22 @@
+=========================================
+BUG 1: crash in fuzz_storage (Unclassified/Stack Overflow)
+=========================================
+The crash in fuzz_storage is caused by a stack overflow (stack guard page violation) in Page::compact(). 
+
+When the fuzzer provides a corrupted page header, get_num_records() returns a large value for num_slots. The compaction loop then attempts to read slot structures from memory offset data + 8 + i * sizeof(Slot). When num_slots is large, the pointer goes far past the 4096-byte page size, reading unmapped stack memory and crashing the process instantly.
+
+This patch fixes the bug by:
+1. Capping get_num_records() to a maximum of 500 (matching the safety limit in insert_record).
+2. Validating the slot offsets and lengths in Page::compact() and Page::get_record() to prevent any out-of-bounds reads/writes.
+
+
+=========================================
+BUG 2: heap-buffer-overflow in get_string (Type Confusion)
+=========================================
+This heap-buffer-overflow is caused by a type confusion vulnerability in the Variant class and QueryEvaluator::evaluate().
+
+During query evaluation, if the query checks a STRING field but the document contains a BOOL (or another type) in that field, evaluate() invokes doc_val.get_string() without verifying that doc_val.type == VariantType::STRING. Inside Variant::get_string(), it performs a blind static_cast to std::string* and dereferences it. Since val_ptr actually points to a 1-byte bool heap allocation, casting and dereferencing it as a 24-byte std::string causes a heap-buffer-overflow.
+
+This patch fixes the bug by:
+1. Adding type checks to all Variant getters (get_string, get_int, get_bool), returning a default value if the stored type does not match the requested getter type.
+2. Updating QueryEvaluator::evaluate() to verify that the document field type matches the query value type before evaluating comparisons.
