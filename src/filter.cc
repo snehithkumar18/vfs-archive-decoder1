@@ -55,6 +55,7 @@ void FilterCache::evict(const std::string& key) {
         if (img) {
             // Free the memory allocated to the image
             delete img;
+            it->second = nullptr;
             
             // Keep the map entry to optimize subsequent lookups and avoid overhead
             // of map re-allocation during high-frequency pipeline executions.

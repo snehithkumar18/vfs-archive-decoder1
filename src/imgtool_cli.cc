@@ -273,11 +273,15 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
         }
         else if (sub == "evict") {
             if (args.size() < 3) return "Error: cache evict requires a key.\n";
+            if (current_image == cache.get(args[2])) {
+                current_image = nullptr;
+            }
             cache.evict(args[2]);
             return "Eviction requested for key '" + args[2] + "'.\n";
         }
         else if (sub == "clear") {
             cache.clear(); // Purge cache pool
+            current_image = nullptr;
             return "Cache cleared.\n";
         }
         
