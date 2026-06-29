@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Solution>
+	<Configurations>
+		<BuildType Name="Debug"/>
+		<BuildType Name="Release"/>
+		<BuildType Name="MinSizeRel"/>
+		<BuildType Name="RelWithDebInfo"/>
+		<Platform Name="x64"/>
+	</Configurations>
+	<Project Path="ALL_BUILD.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="15c08d99-b16c-387d-b27f-bea586526137" DefaultStartup="true">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="aether_graph_static.vcxproj"/>
+		<BuildDependency Project="fuzz_query.vcxproj"/>
+		<BuildDependency Project="fuzz_transaction.vcxproj"/>
+		<BuildDependency Project="run_tests.vcxproj"/>
+		<Build Solution="Debug|*" Project="false"/>
+		<Build Solution="Release|*" Project="false"/>
+		<Build Solution="MinSizeRel|*" Project="false"/>
+		<Build Solution="RelWithDebInfo|*" Project="false"/>
+	</Project>
+	<Project Path="ZERO_CHECK.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="4f8e4bec-6bb0-3451-b100-dd1bea84abef"/>
+	<Project Path="aether_graph_static.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="85d33ca0-07f1-3775-916b-4761fa5f7599">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+	</Project>
+	<Project Path="fuzz_query.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="dd25d1e3-35c0-353a-b1f2-7df0ed1bde20">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="aether_graph_static.vcxproj"/>
+	</Project>
+	<Project Path="fuzz_transaction.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="20bdb5e8-e0bd-3f74-895e-98373f3af355">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="aether_graph_static.vcxproj"/>
+	</Project>
+	<Project Path="run_tests.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="fc72716a-64c8-3719-9846-adfffcd423c6">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
+		<BuildDependency Project="aether_graph_static.vcxproj"/>
+	</Project>
+</Solution>
