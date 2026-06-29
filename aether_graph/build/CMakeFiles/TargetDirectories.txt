@@ -1,0 +1,6 @@
+C:/Users/NEHITH/Documents/Project Fenrer/aether_graph/build/CMakeFiles/aether_graph_static.dir
+C:/Users/NEHITH/Documents/Project Fenrer/aether_graph/build/CMakeFiles/fuzz_query.dir
+C:/Users/NEHITH/Documents/Project Fenrer/aether_graph/build/CMakeFiles/fuzz_transaction.dir
+C:/Users/NEHITH/Documents/Project Fenrer/aether_graph/build/CMakeFiles/run_tests.dir
+C:/Users/NEHITH/Documents/Project Fenrer/aether_graph/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/NEHITH/Documents/Project Fenrer/aether_graph/build/CMakeFiles/ZERO_CHECK.dir

@@ -7,6 +7,13 @@
 
 namespace PixelForge {
 
+struct Pixel {
+    uint8_t r = 0;
+    uint8_t g = 0;
+    uint8_t b = 0;
+    uint8_t a = 255;
+};
+
 enum class PixelFormat {
     RGBA8888 = 0,
     RGB888,
@@ -60,6 +67,42 @@ public:
     
     const uint8_t* getPixelPointer(uint32_t x, uint32_t y) const;
     uint8_t* getPixelPointer(uint32_t x, uint32_t y);
+
+    Pixel get_pixel(uint32_t x, uint32_t y) const {
+        Pixel p{0, 0, 0, 255};
+        if (x < m_width && y < m_height) {
+            const uint8_t* ptr = getPixelPointer(x, y);
+            if (m_channels >= 3) {
+                p.r = ptr[0];
+                p.g = ptr[1];
+                p.b = ptr[2];
+                if (m_channels == 4) {
+                    p.a = ptr[3];
+                }
+            } else if (m_channels == 1) {
+                p.r = ptr[0];
+                p.g = ptr[0];
+                p.b = ptr[0];
+            }
+        }
+        return p;
+    }
+
+    void set_pixel(uint32_t x, uint32_t y, Pixel p) {
+        if (x < m_width && y < m_height) {
+            uint8_t* ptr = getPixelPointer(x, y);
+            if (m_channels >= 3) {
+                ptr[0] = p.r;
+                ptr[1] = p.g;
+                ptr[2] = p.b;
+                if (m_channels == 4) {
+                    ptr[3] = p.a;
+                }
+            } else if (m_channels == 1) {
+                ptr[0] = static_cast<uint8_t>((p.r + p.g + p.b) / 3);
+            }
+        }
+    }
 
     PixelForgeErrorCode getPixel(uint32_t x, uint32_t y, uint8_t* outPixel, size_t outPixelSize) const;
     PixelForgeErrorCode setPixel(uint32_t x, uint32_t y, const uint8_t* inPixel, size_t inPixelSize);

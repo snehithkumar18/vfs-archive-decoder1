@@ -15,8 +15,8 @@ static inline float clamp(float val, float min_val, float max_val) {
 // ---------------------------------------------------------
 
 void ImageProcessorExtra::draw_line_aa(Image& img, Point2D p1, Point2D p2, Pixel color) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
 
     auto plot = [&](int x, int y, float c) {
         if (x >= 0 && x < w && y >= 0 && y < h) {
@@ -88,8 +88,8 @@ void ImageProcessorExtra::draw_line_aa(Image& img, Point2D p1, Point2D p2, Pixel
 }
 
 void ImageProcessorExtra::draw_circle_aa(Image& img, Point2D center, float radius, Pixel color) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
 
     int min_x = std::max(0, static_cast<int>(center.x - radius - 2));
     int max_x = std::min(w - 1, static_cast<int>(center.x + radius + 2));
@@ -147,8 +147,8 @@ void ImageProcessorExtra::draw_bezier_cubic(Image& img, Point2D p0, Point2D p1, 
 
 void ImageProcessorExtra::fill_polygon(Image& img, const std::vector<Point2D>& vertices, Pixel color) {
     if (vertices.size() < 3) return;
-    int h = img.get_height();
-    int w = img.get_width();
+    int h = img.getHeight();
+    int w = img.getWidth();
 
     // Find bounding box
     float min_y_f = vertices[0].y;
@@ -443,8 +443,8 @@ Pixel ImageProcessorExtra::lab_to_rgb(ColorLAB lab) {
 // ---------------------------------------------------------
 
 void ImageProcessorExtra::apply_vignette(Image& img, float radius, float softness) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     float cx = w / 2.0f;
     float cy = h / 2.0f;
     float max_dist = std::sqrt(cx * cx + cy * cy) * radius;
@@ -471,8 +471,8 @@ void ImageProcessorExtra::apply_vignette(Image& img, float radius, float softnes
 }
 
 void ImageProcessorExtra::apply_bilateral_filter(Image& img, int radius, float sigma_d, float sigma_r) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     Image temp = img;
 
     float two_sigma_d_sq = 2.0f * sigma_d * sigma_d;
@@ -518,8 +518,8 @@ void ImageProcessorExtra::apply_bilateral_filter(Image& img, int radius, float s
 }
 
 void ImageProcessorExtra::apply_adaptive_histogram_equalization(Image& img, int grid_size, float clip_limit) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
 
     // Convert image to HSL to equalize Luminance channel only
     std::vector<ColorHSL> hsl_pixels(w * h);
@@ -707,8 +707,8 @@ void ImageProcessorExtra::apply_3d_lut(Image& img, const std::vector<Pixel>& lut
         return;
     }
 
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
 
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
@@ -783,8 +783,8 @@ void ImageProcessorExtra::apply_3d_lut(Image& img, const std::vector<Pixel>& lut
 // ---------------------------------------------------------
 
 void ImageProcessorExtra::apply_3d_perspective_projection(Image& img, float yaw, float pitch, float roll, float fov, float distance) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     Image src = img;
 
     for (int y = 0; y < h; ++y) {
@@ -882,8 +882,8 @@ void ImageProcessorExtra::apply_3d_perspective_projection(Image& img, float yaw,
 // ---------------------------------------------------------
 
 void ImageProcessorExtra::apply_kuwahara_filter(Image& img, int window_size) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     Image src = img;
 
     if (window_size % 2 == 0) window_size++;
@@ -964,14 +964,14 @@ void ImageProcessorExtra::apply_kuwahara_filter(Image& img, int window_size) {
 // ---------------------------------------------------------
 
 void ImageProcessorExtra::seam_carve_width(Image& img, int target_width) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     if (target_width >= w || target_width <= 0) return;
 
     int num_seams_to_remove = w - target_width;
 
     for (int seam_idx = 0; seam_idx < num_seams_to_remove; ++seam_idx) {
-        int cur_w = img.get_width();
+        int cur_w = img.getWidth();
         
         std::vector<float> energy(cur_w * h, 0.0f);
         for (int y = 0; y < h; ++y) {
@@ -1051,7 +1051,7 @@ void ImageProcessorExtra::seam_carve_width(Image& img, int target_width) {
             seam[y] = best_x;
         }
 
-        Image next_img(cur_w - 1, h);
+        Image next_img(cur_w - 1, h, img.getChannels());
         for (int y = 0; y < h; ++y) {
             int seam_x = seam[y];
             for (int x = 0; x < seam_x; ++x) {
@@ -1070,8 +1070,8 @@ void ImageProcessorExtra::seam_carve_width(Image& img, int target_width) {
 // ---------------------------------------------------------
 
 std::vector<Point2D> ImageProcessorExtra::detect_harris_corners(Image& img, float k, float threshold, bool draw_corners) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     
     std::vector<float> Ix(w * h, 0.0f);
     std::vector<float> Iy(w * h, 0.0f);
@@ -1193,8 +1193,8 @@ std::vector<Point2D> ImageProcessorExtra::detect_harris_corners(Image& img, floa
 // ---------------------------------------------------------
 
 void ImageProcessorExtra::apply_k_means_segmentation(Image& img, int k_clusters, int max_iterations) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     if (k_clusters <= 0 || w * h == 0) return;
 
     struct PointRGB {
@@ -1283,8 +1283,8 @@ void ImageProcessorExtra::apply_k_means_segmentation(Image& img, int k_clusters,
 // ---------------------------------------------------------
 
 void ImageProcessorExtra::apply_dilation(Image& img, int radius) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     Image src = img;
 
     for (int y = 0; y < h; ++y) {
@@ -1310,8 +1310,8 @@ void ImageProcessorExtra::apply_dilation(Image& img, int radius) {
 }
 
 void ImageProcessorExtra::apply_erosion(Image& img, int radius) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     Image src = img;
 
     for (int y = 0; y < h; ++y) {
@@ -1341,8 +1341,8 @@ void ImageProcessorExtra::apply_erosion(Image& img, int radius) {
 // ---------------------------------------------------------
 
 void ImageProcessorExtra::apply_fast_box_blur(Image& img, int radius) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     if (w * h == 0 || radius <= 0) return;
 
     std::vector<uint64_t> int_r(w * h, 0);
@@ -1410,8 +1410,8 @@ void ImageProcessorExtra::apply_fast_box_blur(Image& img, int radius) {
 // ---------------------------------------------------------
 
 void ImageProcessorExtra::apply_local_binary_patterns(Image& img) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     Image src = img;
 
     for (int y = 1; y < h - 1; ++y) {
@@ -1443,8 +1443,8 @@ void ImageProcessorExtra::apply_local_binary_patterns(Image& img) {
 // ---------------------------------------------------------
 
 void ImageProcessorExtra::apply_multilevel_otsu_thresholding(Image& img) {
-    int w = img.get_width();
-    int h = img.get_height();
+    int w = img.getWidth();
+    int h = img.getHeight();
     if (w * h == 0) return;
 
     std::vector<int> hist(256, 0);
