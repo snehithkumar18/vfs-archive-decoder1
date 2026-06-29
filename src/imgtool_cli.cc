@@ -143,6 +143,7 @@ bool PixelForgeCLI::save_ppm(const std::string& path, const Image* img) {
 }
 
 std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
+    // Handle parsing and conversion exceptions gracefully
     try {
         std::vector<std::string> args = tokenise(cmd_line);
         if (args.empty()) return "";
