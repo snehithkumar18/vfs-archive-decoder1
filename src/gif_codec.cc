@@ -137,6 +137,7 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
     decoded_bytes.reserve(4096);
 
     while (bit_reader.ReadCode(code_size, code)) {
+        // Prevent LZW container overflow
         if (code > table_size || (code == table_size && prev_code == -1)) {
             delete[] heap_pixels;
             return false;
@@ -194,6 +195,7 @@ static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t wid
 
         // Write decoded bytes to heap buffer (in reverse order)
         for (auto it = decoded_bytes.rbegin(); it != decoded_bytes.rend(); ++it) {
+            // Prevent LZW heap buffer overflow
             if (pixel_idx >= total_pixels) {
                 delete[] heap_pixels;
                 return false;
