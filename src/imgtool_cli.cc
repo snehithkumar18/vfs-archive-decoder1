@@ -143,11 +143,12 @@ bool PixelForgeCLI::save_ppm(const std::string& path, const Image* img) {
 }
 
 std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
-    std::vector<std::string> args = tokenise(cmd_line);
-    if (args.empty()) return "";
+    try {
+        std::vector<std::string> args = tokenise(cmd_line);
+        if (args.empty()) return "";
 
-    std::string cmd = args[0];
-    VFSLogger::get_instance().info("PixelForgeCLI", "Executing CLI command: " + cmd);
+        std::string cmd = args[0];
+        VFSLogger::get_instance().info("PixelForgeCLI", "Executing CLI command: " + cmd);
 
     if (cmd == "help") {
         std::stringstream ss;
@@ -396,6 +397,9 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
     }
 
     return "Unknown command: " + cmd + ". Type 'help' to see active commands.\n";
+    } catch (const std::exception& e) {
+        return "Error: Invalid argument format or out-of-range value.\n";
+    }
 }
 
 } // namespace PixelForge
