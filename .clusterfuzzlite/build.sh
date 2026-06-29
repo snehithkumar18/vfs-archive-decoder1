@@ -22,9 +22,10 @@ $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/string_utils.cc -o string_utils.o
 $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/config_parser.cc -o config_parser.o
 $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/thread_pool.cc -o thread_pool.o
 $CXX $CXXFLAGS -I$SRC/src -c $SRC/src/logger.cc -o logger.o
+$CXX $CXXFLAGS -I$SRC/src -c $SRC/src/image_processor_extra.cc -o image_processor_extra.o
 
 # Object collection
-ALL_OBJS="image.o allocator.o bmp_codec.o tga_codec.o gif_codec.o ppm_codec.o math_utils.o convolution.o transform.o histogram.o drawing.o analysis.o effects.o effects_advanced.o enhancement.o filter.o metadata.o imgtool_cli.o string_utils.o config_parser.o thread_pool.o logger.o"
+ALL_OBJS="image.o allocator.o bmp_codec.o tga_codec.o gif_codec.o ppm_codec.o math_utils.o convolution.o transform.o histogram.o drawing.o analysis.o effects.o effects_advanced.o enhancement.o filter.o metadata.o imgtool_cli.o string_utils.o config_parser.o thread_pool.o logger.o image_processor_extra.o"
 
 # Link all harnesses
 $CXX $CXXFLAGS $LIB_FUZZING_ENGINE $SRC/fuzz/fuzz_bmp.cc $ALL_OBJS -o $OUT/fuzz_bmp

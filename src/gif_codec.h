@@ -47,6 +47,13 @@ struct GifImage {
     uint8_t pixel_aspect_ratio = 0;
     
     std::vector<GifFrame> frames;
+    std::vector<Color>* backup_canvas = nullptr;
+
+    ~GifImage() {
+        if (backup_canvas) {
+            delete backup_canvas;
+        }
+    }
 };
 
 class GifCodec {

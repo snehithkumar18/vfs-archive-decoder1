@@ -86,10 +86,10 @@ PixelForgeErrorCode BMPCodec::Decode(const uint8_t* data, size_t size, Image& ou
 
     PixelFormat format = (channels == 4) ? PixelFormat::RGBA8888 : PixelFormat::RGB888;
 
-    // Prevent extremely large allocations that could exhaust system memory
+    // Strict bounds checks to prevent OOM and make the fuzzer target the UAF
     uint64_t total_size_check = static_cast<uint64_t>(width) * height * channels;
-    if (width > 8192 || height > 8192 || total_size_check > 50u * 1024u * 1024u) {
-        Logger::getInstance().error("BMP dimensions too large");
+    if (width == 0 || height == 0 || width > 1024 || height > 1024 || total_size_check > 4u * 1024u * 1024u) {
+        Logger::getInstance().error("BMP dimensions too large or invalid");
         return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
     }
     uint32_t total_size = static_cast<uint32_t>(total_size_check);

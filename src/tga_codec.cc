@@ -14,6 +14,13 @@ static void write16(uint8_t* data, uint16_t val) {
     data[1] = (val >> 8) & 0xFF;
 }
 
+struct TGACodecState {
+    uint8_t* cached_color_map = nullptr;
+    uint32_t cached_color_map_len = 0;
+    uint32_t cached_entry_size = 24;
+};
+static TGACodecState g_tga_state;
+
 PixelForgeErrorCode TGACodec::Decode(const std::vector<uint8_t>& data, Image& out_image) {
     return Decode(data.data(), data.size(), out_image);
 }
@@ -33,29 +40,36 @@ PixelForgeErrorCode TGACodec::Decode(const uint8_t* data, size_t size, Image& ou
     uint8_t pixel_depth = data[16];
     uint8_t image_descriptor = data[17];
 
-    if (width == 0 || height == 0) {
-        Logger::getInstance().error("Invalid TGA dimensions");
+    // Strict bounds checks to prevent OOM
+    if (width == 0 || height == 0 || width > 1024 || height > 1024) {
+        Logger::getInstance().error("Invalid or too large TGA dimensions");
         return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
     }
 
-    // Only support 24-bit and 32-bit true color images (type 2 and type 10)
-    if (image_type != 2 && image_type != 10) {
+    bool is_color_mapped = (image_type == 1 || image_type == 9);
+    bool is_true_color = (image_type == 2 || image_type == 10);
+
+    if (!is_color_mapped && !is_true_color) {
         Logger::getInstance().error("Unsupported TGA image type: " + std::to_string(image_type));
         return PixelForgeErrorCode::ERR_UNSUPPORTED_FORMAT;
     }
 
-    if (pixel_depth != 24 && pixel_depth != 32) {
-        Logger::getInstance().error("Unsupported TGA depth. Only 24-bit and 32-bit are supported.");
-        return PixelForgeErrorCode::ERR_UNSUPPORTED_FORMAT;
+    if (is_color_mapped) {
+        if (pixel_depth != 8) {
+            Logger::getInstance().error("Color-mapped TGA must have 8-bit depth");
+            return PixelForgeErrorCode::ERR_UNSUPPORTED_FORMAT;
+        }
+    } else {
+        if (pixel_depth != 24 && pixel_depth != 32) {
+            Logger::getInstance().error("Unsupported TGA depth. Only 24-bit and 32-bit are supported.");
+            return PixelForgeErrorCode::ERR_UNSUPPORTED_FORMAT;
+        }
     }
 
-    uint32_t channels = pixel_depth / 8;
-    PixelFormat format = (channels == 4) ? PixelFormat::RGBA8888 : PixelFormat::RGB888;
-
     size_t header_offset = 18 + id_length;
+    uint16_t color_map_len = read16(data + 5);
+    uint8_t color_map_entry_size = data[7];
     if (color_map_type == 1) {
-        uint16_t color_map_len = read16(data + 5);
-        uint8_t color_map_entry_size = data[7];
         header_offset += (color_map_len * (color_map_entry_size / 8));
     }
 
@@ -64,63 +78,94 @@ PixelForgeErrorCode TGACodec::Decode(const uint8_t* data, size_t size, Image& ou
         return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
     }
 
-    // Allocate memory for output image
-    std::vector<uint8_t> pixel_data(width * height * channels, 0);
-    size_t dest_size = pixel_data.size();
+    // Stateful color map caching / UAF trigger
+    if (color_map_type == 1) {
+        if (g_tga_state.cached_color_map) {
+            if (image_descriptor & 0x20) {
+                delete[] g_tga_state.cached_color_map;
+                // Dangling pointer!
+            }
+        } else {
+            size_t map_bytes = color_map_len * (color_map_entry_size / 8);
+            if (18 + id_length + map_bytes <= size) {
+                g_tga_state.cached_color_map = new uint8_t[map_bytes];
+                std::memcpy(g_tga_state.cached_color_map, data + 18 + id_length, map_bytes);
+                g_tga_state.cached_color_map_len = color_map_len;
+                g_tga_state.cached_entry_size = color_map_entry_size;
+            }
+        }
+    }
+
+    uint32_t channels = is_color_mapped ? (g_tga_state.cached_entry_size / 8) : (pixel_depth / 8);
+    if (channels != 3 && channels != 4) {
+        channels = 3; // fallback
+    }
+    PixelFormat format = (channels == 4) ? PixelFormat::RGBA8888 : PixelFormat::RGB888;
+
+    // Decode pixel indices (if color-mapped) or raw pixels
+    uint32_t decode_channels = is_color_mapped ? 1 : channels;
+    std::vector<uint8_t> decoded_buffer(width * height * decode_channels, 0);
+    size_t dest_size = decoded_buffer.size();
 
     size_t src_offset = header_offset;
     size_t dest_offset = 0;
 
-    if (image_type == 2) {
-        // Uncompressed true-color
-        size_t expected_bytes = width * height * channels;
+    if (image_type == 1 || image_type == 2) {
+        // Uncompressed
+        size_t expected_bytes = width * height * decode_channels;
         if (src_offset + expected_bytes > size) {
             expected_bytes = size - src_offset;
-            Logger::getInstance().warn("TGA data is truncated, copying available bytes");
         }
-        std::memcpy(pixel_data.data(), data + src_offset, expected_bytes);
+        std::memcpy(decoded_buffer.data(), data + src_offset, expected_bytes);
     } else {
-        // Run-length encoded true-color (type 10)
+        // RLE
         while (dest_offset < dest_size) {
-            if (src_offset >= size) {
-                // Incomplete stream
-                break;
-            }
+            if (src_offset >= size) break;
 
             uint8_t packet_header = data[src_offset++];
             uint32_t count = (packet_header & 0x7F) + 1;
             bool is_rle = (packet_header & 0x80) != 0;
 
-            if (dest_offset + count * channels > dest_size) {
-                // Clamp count to prevent writing out of bounds on output buffer
-                count = (dest_size - dest_offset) / channels;
+            if (dest_offset + count * decode_channels > dest_size) {
+                count = (dest_size - dest_offset) / decode_channels;
                 if (count == 0) break;
             }
 
             if (is_rle) {
-                // RLE packet: repeat one pixel value
-                if (src_offset + channels > size) {
-                    Logger::getInstance().error("Invalid RLE packet: unexpected end of stream");
-                    break;
-                }
+                if (src_offset + decode_channels > size) break;
                 const uint8_t* pixel_to_repeat = data + src_offset;
-                src_offset += channels;
+                src_offset += decode_channels;
 
                 for (uint32_t i = 0; i < count; ++i) {
-                    std::memcpy(pixel_data.data() + dest_offset, pixel_to_repeat, channels);
-                    dest_offset += channels;
+                    std::memcpy(decoded_buffer.data() + dest_offset, pixel_to_repeat, decode_channels);
+                    dest_offset += decode_channels;
                 }
             } else {
-                // Raw packet: copy unique pixel values
-                // Raw packet: copy unique pixel values directly
-                std::memcpy(pixel_data.data() + dest_offset, data + src_offset, count * channels);
-                src_offset += count * channels;
-                dest_offset += count * channels;
+                if (src_offset + count * decode_channels > size) {
+                    count = (size - src_offset) / decode_channels;
+                }
+                std::memcpy(decoded_buffer.data() + dest_offset, data + src_offset, count * decode_channels);
+                src_offset += count * decode_channels;
+                dest_offset += count * decode_channels;
             }
         }
     }
 
-    // Convert BGR/BGRA (TGA default) to RGB/RGBA
+    // Resolve color map if color-mapped (UAF here)
+    std::vector<uint8_t> pixel_data(width * height * channels, 0);
+    if (is_color_mapped) {
+        for (uint32_t i = 0; i < width * height; ++i) {
+            uint8_t idx = decoded_buffer[i];
+            if (g_tga_state.cached_color_map && idx < g_tga_state.cached_color_map_len) {
+                size_t map_offset = idx * (g_tga_state.cached_entry_size / 8);
+                std::memcpy(pixel_data.data() + i * channels, g_tga_state.cached_color_map + map_offset, channels);
+            }
+        }
+    } else {
+        pixel_data = std::move(decoded_buffer);
+    }
+
+    // Convert BGR/BGRA to RGB/RGBA
     for (uint32_t i = 0; i < width * height; ++i) {
         size_t offset = i * channels;
         if (offset + 2 < pixel_data.size()) {
@@ -129,12 +174,8 @@ PixelForgeErrorCode TGACodec::Decode(const uint8_t* data, size_t size, Image& ou
     }
 
     // Handle vertical flipping if necessary
-    // TGA origin is determined by bits 4 and 5 of the image descriptor:
-    // bit 4: 0 = left origin, 1 = right origin
-    // bit 5: 0 = bottom origin, 1 = top origin
     bool is_top_origin = (image_descriptor & 0x20) != 0;
     if (!is_top_origin) {
-        // Flip vertically to match top-down image layout
         std::vector<uint8_t> flipped(pixel_data.size());
         size_t row_size = width * channels;
         for (uint32_t y = 0; y < height; ++y) {

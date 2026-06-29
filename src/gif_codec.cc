@@ -272,6 +272,11 @@ bool GifCodec::Decode(const uint8_t* data, size_t size, GifImage& out_image) {
         return false;
     }
 
+    // Strict bounds checks to prevent OOM and force the fuzzer to target the UAF
+    if (logical_width == 0 || logical_height == 0 || logical_width > 1024 || logical_height > 1024) {
+        return false;
+    }
+
     uint8_t packed_lsd = 0;
     if (!parser.ReadByte(packed_lsd)) return false;
 
@@ -335,6 +340,32 @@ bool GifCodec::Decode(const uint8_t* data, size_t size, GifImage& out_image) {
                 if (!parser.ReadByte(terminator) || terminator != 0) return false;
 
                 has_gce = true;
+            } else if (ext_func == 0xFF) {
+                uint8_t block_size = 0;
+                if (parser.ReadByte(block_size) && block_size == 11) {
+                    uint8_t app_id[11];
+                    if (parser.ReadBytes(app_id, 11)) {
+                        if (std::memcmp(app_id, "NETSCAPE2.0", 11) == 0) {
+                            uint8_t sub_block_size = 0;
+                            if (parser.ReadByte(sub_block_size) && sub_block_size == 3) {
+                                uint8_t sub_data[3];
+                                if (parser.ReadBytes(sub_data, 3)) {
+                                    if (sub_data[2] == 0x0D) {
+                                        if (out_image.backup_canvas) {
+                                            delete out_image.backup_canvas;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                while (true) {
+                    uint8_t sub_block_size = 0;
+                    if (!parser.ReadByte(sub_block_size)) return false;
+                    if (sub_block_size == 0) break;
+                    if (!parser.SkipBytes(sub_block_size)) return false;
+                }
             } else {
                 while (true) {
                     uint8_t sub_block_size = 0;
@@ -446,6 +477,11 @@ bool GifCodec::Decode(const uint8_t* data, size_t size, GifImage& out_image) {
                 frame.pixels = std::move(decompressed_pixels);
             }
 
+            if (frame.has_local_color_table) {
+                if (out_image.backup_canvas) {
+                    delete out_image.backup_canvas;
+                }
+            }
             out_image.frames.push_back(std::move(frame));
         } else {
             return false;
@@ -487,13 +523,15 @@ bool GifCodec::RenderFrameRGBA(const GifImage& image, size_t frame_index, std::v
         }
         std::fill(canvas.begin(), canvas.end(), bg_color);
 
-        std::vector<Color> prev_canvas;
-
         for (size_t f = 0; f < frame_index; ++f) {
             const auto& frame = image.frames[f];
             
             if (frame.disposal_method == 3) {
-                prev_canvas = canvas;
+                if (image.backup_canvas) {
+                    canvas = *image.backup_canvas; // Use-After-Free
+                } else {
+                    const_cast<GifImage&>(image).backup_canvas = new std::vector<Color>(canvas);
+                }
             }
 
             const auto& color_table = frame.has_local_color_table ? frame.local_color_table : image.global_color_table;
@@ -534,8 +572,8 @@ bool GifCodec::RenderFrameRGBA(const GifImage& image, size_t frame_index, std::v
                         canvas[canvas_y * image.width + canvas_x] = fill_color;
                     }
                 }
-            } else if (frame.disposal_method == 3 && !prev_canvas.empty()) {
-                canvas = prev_canvas;
+            } else if (frame.disposal_method == 3 && image.backup_canvas != nullptr) {
+                canvas = *image.backup_canvas;
             }
         }
 
