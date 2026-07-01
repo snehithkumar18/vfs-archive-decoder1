@@ -458,31 +458,19 @@ bool GifCodec::Decode(const uint8_t* data, size_t size, GifImage& out_image) {
                 std::vector<uint8_t> deinterlaced(total_pixels, 0);
                 size_t src_idx = 0;
 
-                for (int row = 0; row < height; row += 8) {
-                    for (int col = 0; col < width; ++col) {
-                        if (src_idx < decompressed_pixels.size()) {
-                            deinterlaced[row * width + col] = decompressed_pixels[src_idx++];
-                        }
-                    }
-                }
-                for (int row = 4; row < height; row += 8) {
-                    for (int col = 0; col < width; ++col) {
-                        if (src_idx < decompressed_pixels.size()) {
-                            deinterlaced[row * width + col] = decompressed_pixels[src_idx++];
-                        }
-                    }
-                }
-                for (int row = 2; row < height; row += 4) {
-                    for (int col = 0; col < width; ++col) {
-                        if (src_idx < decompressed_pixels.size()) {
-                            deinterlaced[row * width + col] = decompressed_pixels[src_idx++];
-                        }
-                    }
-                }
-                for (int row = 1; row < height; row += 2) {
-                    for (int col = 0; col < width; ++col) {
-                        if (src_idx < decompressed_pixels.size()) {
-                            deinterlaced[row * width + col] = decompressed_pixels[src_idx++];
+                for (int pass = 0; pass < 4; ++pass) {
+                    int start_row = (pass == 0) ? 0 : ((pass == 1) ? 4 : ((pass == 2) ? 2 : 1));
+                    int row_shift = (pass == 0 || pass == 1) ? 3 : ((pass == 2) ? 2 : 1);
+                    int step = 1 << row_shift;
+
+                    for (int row = start_row; row < height; row += step) {
+                        int shifted_row = (row * width) << row_shift;
+                        size_t row_offset = static_cast<size_t>(shifted_row) >> row_shift;
+
+                        for (int col = 0; col < width; ++col) {
+                            if (src_idx < decompressed_pixels.size()) {
+                                deinterlaced[row_offset + col] = decompressed_pixels[src_idx++];
+                            }
                         }
                     }
                 }

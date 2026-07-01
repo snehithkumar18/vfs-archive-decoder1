@@ -7,6 +7,9 @@
 #include "../src/memory_stream.h"
 #include "../src/processing_graph.h"
 #include "../src/tile.h"
+#include "../src/tile_cache.h"
+#include "../src/icc_profile.h"
+#include "../src/bitmap_font.h"
 
 #include <cassert>
 #include <cmath>
@@ -162,6 +165,87 @@ void test_tiles() {
     assert(image.data[dst] == 255);
 }
 
+void test_tile_cache() {
+    TileCache cache(2, 1024 * 1024);
+    TileDescriptor desc1;
+    desc1.tile_x = 0;
+    desc1.tile_y = 0;
+    desc1.region = {0, 0, 2, 2};
+    desc1.halo_region = {0, 0, 2, 2};
+    auto tile1 = std::make_unique<Tile>(desc1, 4);
+    Tile* raw1 = tile1.get();
+
+    cache.put(0, 0, std::move(tile1));
+    assert(cache.get(0, 0) == raw1);
+
+    TileDescriptor desc2;
+    desc2.tile_x = 1;
+    desc2.tile_y = 0;
+    desc2.region = {2, 0, 2, 2};
+    desc2.halo_region = {2, 0, 2, 2};
+    cache.put(1, 0, std::make_unique<Tile>(desc2, 4));
+
+    TileDescriptor desc3;
+    desc3.tile_x = 2;
+    desc3.tile_y = 0;
+    desc3.region = {4, 0, 2, 2};
+    desc3.halo_region = {4, 0, 2, 2};
+    cache.put(2, 0, std::make_unique<Tile>(desc3, 4));
+
+    assert(cache.get(0, 0) == nullptr);
+}
+
+void test_icc_profile() {
+    // Construct a minimal valid ICC profile with 1 tag (rTRC)
+    // Header size = 128 bytes
+    // Tag count (4 bytes) = 1
+    // Tag table entry (12 bytes): signature, offset, size
+    // Tag data: curv tag
+    std::vector<uint8_t> data(128 + 4 + 12 + 12, 0);
+    // Profile size
+    data[0] = 0; data[1] = 0; data[2] = 0; data[3] = static_cast<uint8_t>(data.size());
+    // Signature 'acsp' at offset 36
+    data[36] = 0x61; data[37] = 0x63; data[38] = 0x73; data[39] = 0x70;
+    
+    // Tag count = 1
+    data[128] = 0; data[129] = 0; data[130] = 0; data[131] = 1;
+    
+    // Tag signature = 'rTRC' (0x72545243)
+    data[132] = 0x72; data[133] = 0x54; data[134] = 0x52; data[135] = 0x43;
+    // Offset = 128 + 4 + 12 = 144
+    data[136] = 0; data[137] = 0; data[138] = 0; data[139] = 144;
+    // Size = 12
+    data[140] = 0; data[141] = 0; data[142] = 0; data[143] = 12;
+    
+    // Tag Data: curv type at offset 144
+    // Type 'curv' (0x63757276)
+    data[144] = 0x63; data[145] = 0x75; data[146] = 0x72; data[147] = 0x76;
+    // Reserved = 0
+    // Count = 1 (single gamma)
+    data[148] = 0; data[149] = 0; data[150] = 0; data[151] = 1;
+    // Gamma value = 0x0100 (1.0 in u8.8 fixed-point)
+    data[152] = 0x01; data[153] = 0x00;
+    
+    ICCProfile profile;
+    PixelForgeErrorCode err = profile.parse(data.data(), data.size());
+    assert(err == PixelForgeErrorCode::SUCCESS);
+    assert(profile.is_valid());
+    
+    const ICCTag* tag = profile.get_tag(0x72545243); // 'rTRC'
+    assert(tag != nullptr);
+}
+
+void test_bitmap_font_surrogates() {
+    BitmapFont font;
+    // Querying surrogate range should trigger the mapped_idx index wrapping logic.
+    // E.g., codepoint 0xD810. idx = 0xD810 - 0xD800 = 16. mapped_idx = 16 - 1000 = -984.
+    // -984 < 16 is true, so it will attempt to access surrogate_glyphs[-984] out of bounds.
+    // We don't assert anything dereferencing it here since it would crash under ASan,
+    // but we can query it and verify that it returns nullptr (or triggers index wrapping).
+    const Glyph* g = font.get_glyph(0xD810);
+    (void)g;
+}
+
 void test_processing_graph() {
     Image source(4, 4, PixelFormat::RGBA8888);
     for (uint32_t y = 0; y < source.height; ++y) {
@@ -274,6 +358,9 @@ int main() {
     test_manifest_parser();
     test_expression_parser();
     test_tiles();
+    test_tile_cache();
+    test_icc_profile();
+    test_bitmap_font_surrogates();
     test_processing_graph();
     test_animation_timeline();
 

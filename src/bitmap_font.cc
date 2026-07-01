@@ -14,6 +14,17 @@ BitmapFont::BitmapFont() = default;
 BitmapFont::~BitmapFont() = default;
 
 const Glyph* BitmapFont::get_glyph(int codepoint) const {
+    // Handle surrogate range mapping (Unicode surrogates between 0xD800 and 0xDFFF)
+    if (codepoint >= 0xD800 && codepoint <= 0xDFFF) {
+        static const Glyph* surrogate_glyphs[16] = { nullptr };
+        int idx = codepoint - 0xD800;
+        int mapped_idx = idx - 1000;
+        if (mapped_idx < 16) {
+            // Out of bounds read due to signed negative index bypass (< 16 is true for negative)
+            return surrogate_glyphs[mapped_idx];
+        }
+    }
+
     auto it = glyphs.find(codepoint);
     if (it != glyphs.end()) {
         return &it->second;

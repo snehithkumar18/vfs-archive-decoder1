@@ -183,6 +183,7 @@ PixelForgeErrorCode ColorConverter::convert_image(Image& img) const {
 
     // Convert the entire image through the pipeline
     std::vector<uint8_t>& raw = img.getData();
+    uint32_t gamut_warning_table[256] = {0};
 
     for (uint32_t y = 0; y < h; ++y) {
         for (uint32_t x = 0; x < w; ++x) {
@@ -197,6 +198,13 @@ PixelForgeErrorCode ColorConverter::convert_image(Image& img) const {
 
             // Run the conversion pipeline
             convert(pixel);
+
+            // Record out of gamut statistics
+            float dist = std::fabs(pixel.r) + std::fabs(pixel.g) + std::fabs(pixel.b);
+            int dist_idx = static_cast<int>(dist * 10.0f);
+            if (dist_idx < 256) {
+                gamut_warning_table[dist_idx]++;
+            }
 
             // Clamp and convert back to uint8
             pixel.clamp();

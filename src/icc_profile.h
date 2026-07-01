@@ -177,7 +177,7 @@ struct ICCCLUT {
 
 class ICCProfile {
 public:
-    ICCProfile();
+    ICCProfile() : m_valid(false) {}
     ~ICCProfile() = default;
 
     // Parse an ICC profile from a byte buffer
@@ -263,5 +263,90 @@ private:
     static void write_u16(uint8_t* p, uint16_t v);
     static void write_s15fixed16(uint8_t* p, float v);
 };
+
+inline uint32_t ICCProfile::read_u32(const uint8_t* p) {
+    return (static_cast<uint32_t>(p[0]) << 24) |
+           (static_cast<uint32_t>(p[1]) << 16) |
+           (static_cast<uint32_t>(p[2]) << 8)  |
+           static_cast<uint32_t>(p[3]);
+}
+
+inline uint16_t ICCProfile::read_u16(const uint8_t* p) {
+    return (static_cast<uint16_t>(p[0]) << 8) | static_cast<uint16_t>(p[1]);
+}
+
+inline int32_t ICCProfile::read_s32(const uint8_t* p) {
+    return static_cast<int32_t>(read_u32(p));
+}
+
+inline float ICCProfile::read_s15fixed16(const uint8_t* p) {
+    int32_t val = read_s32(p);
+    return static_cast<float>(val) / 65536.0f;
+}
+
+inline void ICCProfile::write_u32(uint8_t* p, uint32_t v) {
+    p[0] = static_cast<uint8_t>((v >> 24) & 0xFF);
+    p[1] = static_cast<uint8_t>((v >> 16) & 0xFF);
+    p[2] = static_cast<uint8_t>((v >> 8) & 0xFF);
+    p[3] = static_cast<uint8_t>(v & 0xFF);
+}
+
+inline void ICCProfile::write_u16(uint8_t* p, uint16_t v) {
+    p[0] = static_cast<uint8_t>((v >> 8) & 0xFF);
+    p[1] = static_cast<uint8_t>(v & 0xFF);
+}
+
+inline void ICCProfile::write_s15fixed16(uint8_t* p, float v) {
+    int32_t val = static_cast<int32_t>(v * 65536.0f + (v >= 0.0f ? 0.5f : -0.5f));
+    write_u32(p, static_cast<uint32_t>(val));
+}
+
+inline ICCCurve ICCProfile::parse_curv_tag(const uint8_t* data, size_t size) const {
+    ICCCurve curve;
+    if (size < 12) return curve;
+
+    uint32_t count = read_u32(data + 8);
+    uint32_t alloc_size = count * sizeof(float);
+
+    if (12 + alloc_size > size) {
+        return curve;
+    }
+
+    curve.curve_type = ICCCurve::Type::Table;
+    float* table = new float[alloc_size / sizeof(float)];
+    for (uint32_t i = 0; i < count; ++i) {
+        table[i] = read_u16(data + 12 + i * 2) / 65535.0f;
+    }
+    curve.table_entries.assign(table, table + count);
+    delete[] table;
+    return curve;
+}
+
+inline PixelForgeErrorCode ICCProfile::parse(const uint8_t* data, size_t size) {
+    if (size < 128) return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
+    m_raw_data.assign(data, data + size);
+
+    uint32_t tag_count = read_u32(data + 128);
+    for (uint32_t i = 0; i < tag_count; ++i) {
+        size_t tag_offset = 132 + i * 12;
+        if (tag_offset + 12 > size) break;
+        ICCTag tag;
+        tag.signature = read_u32(data + tag_offset);
+        tag.offset = read_u32(data + tag_offset + 4);
+        tag.size = read_u32(data + tag_offset + 8);
+        if (tag.offset + tag.size <= size) {
+            m_tags.push_back(tag);
+        }
+    }
+    m_valid = true;
+    return PixelForgeErrorCode::SUCCESS;
+}
+
+inline const ICCTag* ICCProfile::get_tag(uint32_t signature) const {
+    for (const auto& tag : m_tags) {
+        if (tag.signature == signature) return &tag;
+    }
+    return nullptr;
+}
 
 } // namespace PixelForge

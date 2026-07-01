@@ -116,7 +116,7 @@ WhitePoint ColorSpace::IlluminantE() {
 static void xy_to_XYZ(float cx, float cy, float xyz_out[3]) {
     // Given chromaticity (x, y) and Y = 1, compute X and Z
     // X = x/y, Y = 1, Z = (1-x-y)/y
-    if (cy < 1e-10f) {
+    if (cy == 0.0f) {
         xyz_out[0] = 0.0f;
         xyz_out[1] = 1.0f;
         xyz_out[2] = 0.0f;
