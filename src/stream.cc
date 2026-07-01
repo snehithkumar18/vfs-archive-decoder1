@@ -1,5 +1,5 @@
 #include "stream.h"
-#include "endian.h"
+#include "pf_endian.h"
 
 #include <cstring>
 
