@@ -4,8 +4,15 @@ pocs/
 *.bin
 tests/*.exe
 tests/*.o
+*.obj
+*.zip
+*.patch
+.vs/
+.cache/
+build/
+out/
+scratch/
 .idea/
 .vscode/
 cmake-build-*/
-*.obj
 

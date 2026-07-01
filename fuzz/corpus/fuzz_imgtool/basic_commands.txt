@@ -1,0 +1,4 @@
+create 8 8 3
+stats
+grayscale
+stats

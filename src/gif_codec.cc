@@ -37,7 +37,10 @@ public:
             }
             current_block_remaining_ = next_block_size;
         }
-        if (offset_ >= size_) return 0;
+        if (offset_ >= size_) {
+            current_block_remaining_ = 0;
+            return 0;
+        }
         uint8_t val = data_[offset_++];
         current_block_remaining_--;
         return val;
@@ -88,6 +91,10 @@ public:
 
 static bool DecompressLZW(const uint8_t* lzw_data, size_t lzw_size, uint16_t width, uint16_t height, uint8_t min_code_size, std::vector<uint8_t>& out_pixels) {
     if (min_code_size < 2 || min_code_size > 8) {
+        return false;
+    }
+
+    if (width == 0 || height == 0 || width > 1024 || height > 1024) {
         return false;
     }
 
@@ -360,11 +367,8 @@ bool GifCodec::Decode(const uint8_t* data, size_t size, GifImage& out_image) {
                             if (parser.ReadByte(sub_block_size) && sub_block_size == 3) {
                                 uint8_t sub_data[3];
                                 if (parser.ReadBytes(sub_data, 3)) {
-                                    if (sub_data[2] == 0x0D) {
-                                        if (out_image.backup_canvas) {
-                                            delete out_image.backup_canvas;
-                                        }
-                                    }
+                                    // Application extension data is metadata; it
+                                    // never owns or invalidates render buffers.
                                 }
                             }
                         }
@@ -487,11 +491,6 @@ bool GifCodec::Decode(const uint8_t* data, size_t size, GifImage& out_image) {
                 frame.pixels = std::move(decompressed_pixels);
             }
 
-            if (frame.has_local_color_table) {
-                if (out_image.backup_canvas) {
-                    delete out_image.backup_canvas;
-                }
-            }
             out_image.frames.push_back(std::move(frame));
         } else {
             return false;
@@ -533,15 +532,14 @@ bool GifCodec::RenderFrameRGBA(const GifImage& image, size_t frame_index, std::v
         }
         std::fill(canvas.begin(), canvas.end(), bg_color);
 
+        std::vector<Color> backup_canvas;
+        bool has_backup = false;
         for (size_t f = 0; f < frame_index; ++f) {
             const auto& frame = image.frames[f];
             
             if (frame.disposal_method == 3) {
-                if (image.backup_canvas) {
-                    canvas = *image.backup_canvas; // Use-After-Free
-                } else {
-                    const_cast<GifImage&>(image).backup_canvas = new std::vector<Color>(canvas);
-                }
+                backup_canvas = canvas;
+                has_backup = true;
             }
 
             const auto& color_table = frame.has_local_color_table ? frame.local_color_table : image.global_color_table;
@@ -582,8 +580,9 @@ bool GifCodec::RenderFrameRGBA(const GifImage& image, size_t frame_index, std::v
                         canvas[canvas_y * image.width + canvas_x] = fill_color;
                     }
                 }
-            } else if (frame.disposal_method == 3 && image.backup_canvas != nullptr) {
-                canvas = *image.backup_canvas;
+            } else if (frame.disposal_method == 3 && has_backup) {
+                canvas = backup_canvas;
+                has_backup = false;
             }
         }
 

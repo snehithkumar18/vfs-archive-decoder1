@@ -1,51 +1,96 @@
-# PixelForge (Production-Grade C++17 Image Decoding & Processing Library)
+# PixelForge
 
-`PixelForge` is a robust, production-grade C++17 systems programming library designed for decoding, encoding, filtering, and analyzing standard digital image formats in embedded, graphical, and game development environments.
+PixelForge is a C++17 image-processing library and command layer for small desktop, game-tooling, and batch image workflows. It provides basic image codecs, filtering, metadata handling, color conversion, compositing helpers, tiled processing primitives, processing graphs, manifest parsing, expression evaluation, and fuzz-test entry points.
 
-The library features memory-recycled buffer allocation, comprehensive pixel geometry shaders, and advanced computer vision and image enhancement pipelines.
+The project is intended to be useful software first. Fuzzing support is part of the quality gate, not the product’s main purpose.
 
-## Features
+## Current capabilities
 
-* **Standard File Format Codecs**:
-  * **BMP (Windows Bitmap)**: Support for v3/v4/v5 headers, deep bit depths (24-bit/32-bit), color palettes, and standard RLE-8 compression.
-  * **TGA (Truevision Targa)**: Support for uncompressed and RLE-compressed true-color, grayscale, and color-mapped formats.
-  * **GIF (Graphics Interchange Format)**: Decompresses animated multi-frame GIF87a/GIF89a containers using a table-driven LZW bitstream decoder.
-  * **PPM (Netpbm Portable Pixmap)**: Support for P1-P6 text and binary formats (grayscale, RGB).
+- Image containers and codecs:
+  - BMP decode support for common Windows bitmap layouts.
+  - TGA decode support for uncompressed, RLE, grayscale, and color-mapped images.
+  - GIF decode support for GIF87a/GIF89a image streams.
+  - Netpbm PPM/PGM/PBM read/write helpers.
+- Processing and analysis:
+  - Resize, crop, blur, grayscale, sepia, brightness/contrast/gamma, sharpening, and advanced stylized effects.
+  - Histogram, convolution, geometric transform, drawing, Canny/Otsu/Hough-style analysis, and SSIM helpers.
+- Production subsystems:
+  - Bounds-checked byte-stream and in-memory stream abstractions.
+  - Color spaces, transfer functions, RGB/XYZ/Lab/HSL/HSV/YCbCr/CMYK conversion helpers.
+  - Porter-Duff-style region blending and layer-tree utilities.
+  - Tiled image decomposition and tile cache primitives.
+  - Non-destructive processing graph validation/execution over core image operations.
+  - JSON-like batch manifest parser and INI configuration parser.
+  - Expression parser/evaluator with deterministic math built-ins for batch expressions.
+  - Priority thread pool, logging, base64/hex utilities, metadata serialization.
+- Quality infrastructure:
+  - CMake build with unit and integration tests.
+  - MSVC local build script.
+  - ClusterFuzzLite harness build script.
+  - Fuzz harnesses for BMP, TGA, GIF, imgtool command inputs, expressions, and processing graphs.
+  - Deterministic seed corpus under `fuzz/corpus`.
 
-* **Advanced Filter & Shader Engine**:
-  * **Traditional effects**: Grayscale, sepia, box blurs, brightness, contrast, gamma, and vignette adjustments.
-  * **Color Bindness Simulation**: LMS-based simulations for protanopia, deuteranopia, and tritanopia.
-  * **Stylized advanced filters**: rotated grid halftone, Floyd-Steinberg error-diffusion dithering, Gaussian drop shadows with alpha-compositing, chromatic aberration, solarization, posterization, oil painting, kaleidoscope, glitch strips, anaglyph 3D, and character ASCII art.
+## Repository layout
 
-* **Computer Vision & Image Analysis**:
-  * **Edge Detection**: Canny edge detector with hysteresis thresholding and Gaussian pre-smoothing.
-  * **Feature Extraction**: Otsu binarization, Connected Component Labeling (CCL), and Hough Transform for detecting lines.
-  * **Quality Assessment**: Structural Similarity Index Measure (SSIM) for comparing two images.
+- `src/` — library headers and C++17 implementation files.
+- `tests/` — deterministic unit, integration, utility, stress, and subsystem tests.
+- `fuzz/` — libFuzzer-compatible harnesses and seed corpora.
+- `.clusterfuzzlite/` — fuzz build script for ClusterFuzzLite-style environments.
+- `tools/` — local helper scripts for corpus generation and MSVC build verification.
+- `docs/` — architecture, roadmap, and submission-readiness notes.
 
-* **Performance & Subsystems**:
-  * **Recyclable Allocator**: FrameBufferAllocator recycles memory buffers for multi-frame animations to avoid runtime allocation overhead.
-  * **Task Thread Pool**: Thread pool with job priority scheduling for parallelizing heavy filter computations.
-  * **INI Config Parser**: Parses configurations to automate batch image filtering pipelines.
-  * **Hex / Base64 Codecs**: Standard text representations for metadata handling.
+## Build and test
 
-## Directory Structure
+### Windows / MSVC
 
-* `src/`: Core library header and implementation source files.
-  * `image.h` / `image.cc`: Core image class and conversion helpers.
-  * `allocator.h` / `allocator.cc`: Memory recyclers.
-  * `*_codec.h` / `*_codec.cc`: BMP, TGA, GIF, PPM file decoders.
-  * `filter.h` / `filter.cc` / `effects_*.h` / `effects_*.cc`: Blur, transform, advanced effects.
-  * `analysis.h` / `analysis.cc`: Canny, Otsu, Hough, SSIM.
-  * `thread_pool.h` / `thread_pool.cc` / `logger.h` / `logger.cc`: Task scheduling, logging.
-* `fuzz/`: Fuzzing harnesses targeting BMP, TGA, GIF, and imgtool CLI.
-* `.clusterfuzzlite/`: Build configurations and scripts for ClusterFuzzLite integration.
-* `tests/`: Automated unit tests, stress tests, and benchmarks.
-* `pocs/`: Generated proof-of-concept files triggering security boundary assertions.
+From a normal PowerShell prompt in the repository root:
 
-## Building and Running Tests
-
-To compile and run the test suite locally (expects `g++` supporting C++17):
-```bash
-# Execute local runner batch script (Windows)
-tests\run_tests.bat
+```powershell
+tools\build_msvc.bat
 ```
+
+This script locates Visual Studio Build Tools, runs two fast smoke tests, configures CMake with the MSVC NMake generator, builds the full library, and runs the CTest suite.
+
+### CMake
+
+If your compiler environment is already initialized:
+
+```bash
+cmake -S . -B build/cmake -DPIXELFORGE_BUILD_TESTS=ON
+cmake --build build/cmake
+ctest --test-dir build/cmake --output-on-failure
+```
+
+The build is offline and does not require downloading dependencies.
+
+## Fuzzing
+
+Harnesses live in `fuzz/`:
+
+- `fuzz_bmp.cc`
+- `fuzz_tga.cc`
+- `fuzz_gif.cc`
+- `fuzz_imgtool.cc`
+- `fuzz_expression.cc`
+- `fuzz_processing_graph.cc`
+
+Seed corpus files live under:
+
+- `fuzz/corpus/fuzz_bmp/`
+- `fuzz/corpus/fuzz_tga/`
+- `fuzz/corpus/fuzz_gif/`
+- `fuzz/corpus/fuzz_imgtool/`
+- `fuzz/corpus/fuzz_expression/`
+- `fuzz/corpus/fuzz_processing_graph/`
+
+Regenerate deterministic seeds with:
+
+```bash
+python tools/generate_seed_corpus.py
+```
+
+## Security and PoC policy
+
+PixelForge keeps fuzz harnesses and sanitizers enabled for vulnerability discovery and regression testing. Proof-of-concept crash inputs should be raw harness inputs and must be validated against the exact unpatched revision they target.
+
+This repository should not include credentials, network-dependent setup, generated filler code, duplicate padding, or artificial line-count inflation.

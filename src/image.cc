@@ -32,6 +32,54 @@ Image::Image(uint32_t width, uint32_t height, PixelFormat format, std::vector<ui
     sync();
 }
 
+Image::Image(const Image& other)
+    : m_width(other.m_width),
+      m_height(other.m_height),
+      m_format(other.m_format),
+      m_channels(other.m_channels),
+      m_data(other.m_data) {
+    sync();
+}
+
+Image& Image::operator=(const Image& other) {
+    if (this == &other) return *this;
+    m_width = other.m_width;
+    m_height = other.m_height;
+    m_format = other.m_format;
+    m_channels = other.m_channels;
+    m_data = other.m_data;
+    sync();
+    return *this;
+}
+
+Image::Image(Image&& other) noexcept
+    : m_width(other.m_width),
+      m_height(other.m_height),
+      m_format(other.m_format),
+      m_channels(other.m_channels),
+      m_data(std::move(other.m_data)) {
+    sync();
+    other.m_width = 0;
+    other.m_height = 0;
+    other.m_channels = 0;
+    other.sync();
+}
+
+Image& Image::operator=(Image&& other) noexcept {
+    if (this == &other) return *this;
+    m_width = other.m_width;
+    m_height = other.m_height;
+    m_format = other.m_format;
+    m_channels = other.m_channels;
+    m_data = std::move(other.m_data);
+    sync();
+    other.m_width = 0;
+    other.m_height = 0;
+    other.m_channels = 0;
+    other.sync();
+    return *this;
+}
+
 PixelForgeErrorCode Image::allocate(uint32_t width, uint32_t height, PixelFormat format) {
     if (width == 0 || height == 0) {
         Logger::getInstance().error("Invalid dimensions for image allocation: " + std::to_string(width) + "x" + std::to_string(height));

@@ -1,0 +1,1 @@
+gain = saturate(1.2); round(sin(pi / 2) * 100) + mix(10, 20, gain)

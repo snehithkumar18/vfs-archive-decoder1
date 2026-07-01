@@ -3,3 +3,5 @@ fuzz_targets:
   - fuzz_tga
   - fuzz_gif
   - fuzz_imgtool
+  - fuzz_expression
+  - fuzz_processing_graph

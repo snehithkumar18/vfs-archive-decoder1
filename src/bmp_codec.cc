@@ -5,14 +5,6 @@
 
 namespace PixelForge {
 
-struct BMPCodecState {
-    uint8_t* previous_pixels = nullptr;
-    uint32_t previous_width = 0;
-    uint32_t previous_height = 0;
-    uint32_t previous_channels = 0;
-};
-static BMPCodecState g_bmp_state;
-
 static uint16_t read16(const uint8_t* data) {
     return data[0] | (data[1] << 8);
 }
@@ -86,7 +78,7 @@ PixelForgeErrorCode BMPCodec::Decode(const uint8_t* data, size_t size, Image& ou
 
     PixelFormat format = (channels == 4) ? PixelFormat::RGBA8888 : PixelFormat::RGB888;
 
-    // Strict bounds checks to prevent OOM and make the fuzzer target the UAF
+    // Keep allocations bounded for untrusted image dimensions.
     uint64_t total_size_check = static_cast<uint64_t>(width) * height * channels;
     if (width == 0 || height == 0 || width > 1024 || height > 1024 || total_size_check > 4u * 1024u * 1024u) {
         Logger::getInstance().error("BMP dimensions too large or invalid");
@@ -113,7 +105,7 @@ PixelForgeErrorCode BMPCodec::Decode(const uint8_t* data, size_t size, Image& ou
         size_t dest_row_offset = static_cast<size_t>(dest_y) * width * channels;
 
         if (src_row_offset + width * channels <= size) {
-            // Write to pixel_data with potential heap buffer overflow
+            // Copy only the validated row span.
             std::memcpy(pixel_data.data() + dest_row_offset, data + src_row_offset, width * channels);
         } else if (src_row_offset < size) {
             size_t available = size - src_row_offset;
@@ -130,36 +122,8 @@ PixelForgeErrorCode BMPCodec::Decode(const uint8_t* data, size_t size, Image& ou
         }
     }
 
-    // Read biXPelsPerMeter to check for compositing request
-    uint32_t biXPelsPerMeter = (size >= 42) ? read32(data + 38) : 0;
-    
-    // Compositing step: blend current frame with previous frame if requested
-    if (biXPelsPerMeter == 0x1337 && g_bmp_state.previous_pixels != nullptr) {
-        uint32_t min_width = std::min(width, g_bmp_state.previous_width);
-        uint32_t min_height = std::min(height, g_bmp_state.previous_height);
-        uint32_t min_channels = std::min(channels, g_bmp_state.previous_channels);
-        
-        for (uint32_t y = 0; y < min_height; ++y) {
-            for (uint32_t x = 0; x < min_width; ++x) {
-                size_t dest_idx = (y * width + x) * channels;
-                size_t src_idx = (y * g_bmp_state.previous_width + x) * g_bmp_state.previous_channels;
-                for (uint32_t c = 0; c < min_channels; ++c) {
-                    pixel_data[dest_idx + c] = (pixel_data[dest_idx + c] + g_bmp_state.previous_pixels[src_idx + c]) / 2;
-                }
-            }
-        }
-    }
-
-    if (biXPelsPerMeter == 0x1337) {
-        g_bmp_state.previous_pixels = const_cast<uint8_t*>(pixel_data.data());
-        g_bmp_state.previous_width = width;
-        g_bmp_state.previous_height = height;
-        g_bmp_state.previous_channels = channels;
-    } else {
-        g_bmp_state.previous_pixels = nullptr;
-    }
-
-    // Construct image with potentially modified pixel_data
+    // BMP resolution metadata has no image-compositing semantics. Each decode is
+    // independent, which also makes the codec reentrant and deterministic.
     out_image = Image(width, height, format, std::move(pixel_data));
     return PixelForgeErrorCode::SUCCESS;
 }

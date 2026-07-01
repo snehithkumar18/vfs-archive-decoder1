@@ -1,0 +1,2 @@
+metadata add comment "PixelForge" "seed" 1
+metadata view

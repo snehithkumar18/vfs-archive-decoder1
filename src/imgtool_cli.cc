@@ -13,11 +13,6 @@ PixelForgeCLI::PixelForgeCLI() : current_image(nullptr), cache(3) {
 }
 
 PixelForgeCLI::~PixelForgeCLI() {
-    // Avoid double freeing current_image if it was already freed in cache
-    // In a normal run we would delete it, but since we have deliberate UAF and double free,
-    // we only delete current_image if it is not null. To prevent crash in tests/clean exits
-    // we could do a simple delete, but we must be careful.
-    // Let's delete it.
     delete current_image;
     
     for (auto* block : current_metadata) {
@@ -199,7 +194,8 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
         std::string key = (args.size() > 1) ? args[1] : "";
         Image* res = apply_grayscale(current_image, &cache, key);
         if (!res) return "Error: Grayscale operation failed.\n";
-        current_image = res; // May be a stale pointer if cache hit on evicted element
+        delete current_image;
+        current_image = res;
         return "Grayscale filter applied.\n";
     }
 
@@ -211,6 +207,7 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
         std::string key = (args.size() > 3) ? args[3] : "";
         Image* res = apply_resize(current_image, w, h, &cache, key);
         if (!res) return "Error: Resize operation failed.\n";
+        delete current_image;
         current_image = res;
         return "Resize filter applied.\n";
     }
@@ -222,6 +219,7 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
         std::string key = (args.size() > 2) ? args[2] : "";
         Image* res = apply_blur(current_image, rad, &cache, key);
         if (!res) return "Error: Blur operation failed.\n";
+        delete current_image;
         current_image = res;
         return "Blur filter applied.\n";
     }
@@ -236,6 +234,7 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
         std::string key = (args.size() > 5) ? args[5] : "";
         Image* res = apply_crop(current_image, cx, cy, cw, ch, &cache, key);
         if (!res) return "Error: Crop operation failed.\n";
+        delete current_image;
         current_image = res;
         return "Crop filter applied.\n";
     }
@@ -270,20 +269,17 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             if (args.size() < 3) return "Error: cache get requires a key.\n";
             Image* img = cache.get(args[2]);
             if (!img) return "Error: Key not found in cache.\n";
-            current_image = img; // Active cache reference copy
+            delete current_image;
+            current_image = new Image(*img);
             return "Image from key '" + args[2] + "' is now the active image.\n";
         }
         else if (sub == "evict") {
             if (args.size() < 3) return "Error: cache evict requires a key.\n";
-            if (current_image == cache.get(args[2])) {
-                current_image = nullptr;
-            }
             cache.evict(args[2]);
             return "Eviction requested for key '" + args[2] + "'.\n";
         }
         else if (sub == "clear") {
             cache.clear(); // Purge cache pool
-            current_image = nullptr;
             return "Cache cleared.\n";
         }
         
@@ -380,6 +376,7 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             MetadataBlock* block = current_metadata[idx];
             // Fast direct cast of metadata block to EXIF structure
             EXIFBlock* exif = get_exif_block(block);
+            if (!exif) return "Error: Selected metadata block is not EXIF.\n";
             
             std::stringstream ss;
             ss << "=== Type Confused EXIF View ===\n"

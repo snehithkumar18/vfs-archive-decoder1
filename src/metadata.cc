@@ -176,19 +176,13 @@ std::vector<uint8_t> serialize_metadata(const std::vector<const MetadataBlock*>&
 }
 
 EXIFBlock* get_exif_block(MetadataBlock* block) {
-    if (!block) return nullptr;
-    
-    // Direct static cast optimized for high-performance retrieval.
-    VFSLogger::get_instance().warn("MetadataCast", "Casting metadata block to EXIFBlock (No type verification performed).");
-    return static_cast<EXIFBlock*>(block);
+    if (!block || block->type != MetadataType::EXIF) return nullptr;
+    return dynamic_cast<EXIFBlock*>(block);
 }
 
 CommentsBlock* get_comments_block(MetadataBlock* block) {
-    if (!block) return nullptr;
-    
-    // Similarly, bypass checking for symmetry or allow casting to CommentsBlock
-    VFSLogger::get_instance().warn("MetadataCast", "Casting metadata block to CommentsBlock (No type verification performed).");
-    return static_cast<CommentsBlock*>(block);
+    if (!block || block->type != MetadataType::COMMENTS) return nullptr;
+    return dynamic_cast<CommentsBlock*>(block);
 }
 
 } // namespace PixelForge

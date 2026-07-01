@@ -303,10 +303,9 @@ void TestMetadata() {
     assert(parsed_eb->thumbnail_size == eb->thumbnail_size);
     assert(std::memcmp(parsed_eb->raw_thumbnail, eb->raw_thumbnail, 8) == 0);
 
-    // Type Confusion casting check (get_exif_block vs get_comments_block)
-    // Cast CommentsBlock to EXIFBlock* directly
+    // Type-safe metadata accessors reject mismatched block types.
     EXIFBlock* confused_exif = get_exif_block(parsed[0]);
-    assert(confused_exif != nullptr); // Cast succeeds silently
+    assert(confused_exif == nullptr);
 
     // Clean up
     for (auto* p : parsed) delete p;

@@ -14,13 +14,6 @@ static void write16(uint8_t* data, uint16_t val) {
     data[1] = (val >> 8) & 0xFF;
 }
 
-struct TGACodecState {
-    uint8_t* cached_color_map = nullptr;
-    uint32_t cached_color_map_len = 0;
-    uint32_t cached_entry_size = 24;
-};
-static TGACodecState g_tga_state;
-
 PixelForgeErrorCode TGACodec::Decode(const std::vector<uint8_t>& data, Image& out_image) {
     return Decode(data.data(), data.size(), out_image);
 }
@@ -78,25 +71,24 @@ PixelForgeErrorCode TGACodec::Decode(const uint8_t* data, size_t size, Image& ou
         return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
     }
 
-    // Stateful color map caching / UAF trigger
-    if (color_map_type == 1) {
-        if (g_tga_state.cached_color_map) {
-            if (image_descriptor & 0x20) {
-                delete[] g_tga_state.cached_color_map;
-                // Dangling pointer!
-            }
-        } else {
-            size_t map_bytes = color_map_len * (color_map_entry_size / 8);
-            if (18 + id_length + map_bytes <= size) {
-                g_tga_state.cached_color_map = new uint8_t[map_bytes];
-                std::memcpy(g_tga_state.cached_color_map, data + 18 + id_length, map_bytes);
-                g_tga_state.cached_color_map_len = color_map_len;
-                g_tga_state.cached_entry_size = color_map_entry_size;
-            }
+    uint32_t palette_channels = color_map_entry_size / 8;
+    if (is_color_mapped && color_map_type != 1) {
+        return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
+    }
+    if (is_color_mapped && palette_channels != 3 && palette_channels != 4) {
+        return PixelForgeErrorCode::ERR_UNSUPPORTED_FORMAT;
+    }
+    size_t map_bytes = static_cast<size_t>(color_map_len) * palette_channels;
+    std::vector<uint8_t> color_map;
+    if (is_color_mapped) {
+        size_t map_offset = 18u + id_length;
+        if (map_offset > size || map_bytes > size - map_offset) {
+            return PixelForgeErrorCode::ERR_INVALID_PARAMETER;
         }
+        color_map.assign(data + map_offset, data + map_offset + map_bytes);
     }
 
-    uint32_t channels = is_color_mapped ? (g_tga_state.cached_entry_size / 8) : (pixel_depth / 8);
+    uint32_t channels = is_color_mapped ? palette_channels : (pixel_depth / 8);
     if (channels != 3 && channels != 4) {
         channels = 3; // fallback
     }
@@ -151,14 +143,16 @@ PixelForgeErrorCode TGACodec::Decode(const uint8_t* data, size_t size, Image& ou
         }
     }
 
-    // Resolve color map if color-mapped (UAF here)
+    // Resolve indices through the palette owned by this decode operation.
     std::vector<uint8_t> pixel_data(width * height * channels, 0);
     if (is_color_mapped) {
         for (uint32_t i = 0; i < width * height; ++i) {
             uint8_t idx = decoded_buffer[i];
-            if (g_tga_state.cached_color_map && idx < g_tga_state.cached_color_map_len) {
-                size_t map_offset = idx * (g_tga_state.cached_entry_size / 8);
-                std::memcpy(pixel_data.data() + i * channels, g_tga_state.cached_color_map + map_offset, channels);
+            if (idx < color_map_len) {
+                size_t map_offset = static_cast<size_t>(idx) * palette_channels;
+                std::memcpy(pixel_data.data() + static_cast<size_t>(i) * channels,
+                            color_map.data() + map_offset,
+                            channels);
             }
         }
     } else {

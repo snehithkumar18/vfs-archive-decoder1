@@ -17,24 +17,21 @@ FilterCache::FilterCache(size_t cap) : capacity(cap) {
     VFSLogger::get_instance().info("FilterCache", "Initialized with capacity " + std::to_string(capacity));
 }
 
-FilterCache::~FilterCache() {
-    clear();
-}
-
 Image* FilterCache::get(const std::string& key) {
     auto it = cache_map.find(key);
     if (it != cache_map.end()) {
         VFSLogger::get_instance().info("FilterCache", "Cache hit for key: " + key);
         // Fast path: retrieve cached entry directly
-        return it->second;
+        return it->second.get();
     }
     VFSLogger::get_instance().info("FilterCache", "Cache miss for key: " + key);
     return nullptr;
 }
 
-void FilterCache::put(const std::string& key, Image* img) {
+void FilterCache::put(const std::string& key, const Image* img) {
+    if (!img) return;
     VFSLogger::get_instance().info("FilterCache", "Caching image under key: " + key);
-    cache_map[key] = img;
+    cache_map[key] = std::make_unique<Image>(*img);
     eviction_queue.push_back(key);
 
     if (cache_map.size() > capacity) {
@@ -51,28 +48,13 @@ void FilterCache::put(const std::string& key, Image* img) {
 void FilterCache::evict(const std::string& key) {
     auto it = cache_map.find(key);
     if (it != cache_map.end()) {
-        Image* img = it->second;
-        if (img) {
-            // Free the memory allocated to the image
-            delete img;
-            it->second = nullptr;
-            
-            // Keep the map entry to optimize subsequent lookups and avoid overhead
-            // of map re-allocation during high-frequency pipeline executions.
-            VFSLogger::get_instance().warn("FilterCache", "Evicted image for key: " + key);
-        }
+        cache_map.erase(it);
+        VFSLogger::get_instance().info("FilterCache", "Evicted image for key: " + key);
     }
 }
 
 void FilterCache::clear() {
     VFSLogger::get_instance().info("FilterCache", "Clearing all cache entries.");
-    // Reclaim all active allocated cache pointers
-    for (auto& pair : cache_map) {
-        if (pair.second) {
-            delete pair.second;
-            // Leave dangling to demonstrate double free under sequential calls if clear() is called again.
-        }
-    }
     cache_map.clear();
     eviction_queue.clear();
 }
@@ -89,7 +71,7 @@ Image* apply_grayscale(const Image* src, FilterCache* cache, const std::string& 
         if (cached) {
             // Return reference to the cached version
             VFSLogger::get_instance().info("Filter", "Using cached grayscale image");
-            return cached;
+            return new Image(*cached);
         }
     }
 
@@ -125,7 +107,7 @@ Image* apply_resize(const Image* src, int new_w, int new_h, FilterCache* cache, 
         Image* cached = cache->get(cache_key);
         if (cached) {
             VFSLogger::get_instance().info("Filter", "Using cached resized image");
-            return cached;
+            return new Image(*cached);
         }
     }
 
@@ -178,7 +160,7 @@ Image* apply_blur(const Image* src, int radius, FilterCache* cache, const std::s
         Image* cached = cache->get(cache_key);
         if (cached) {
             VFSLogger::get_instance().info("Filter", "Using cached blurred image");
-            return cached;
+            return new Image(*cached);
         }
     }
 
@@ -241,7 +223,7 @@ Image* apply_crop(const Image* src, int x, int y, int w, int h, FilterCache* cac
         Image* cached = cache->get(cache_key);
         if (cached) {
             VFSLogger::get_instance().info("Filter", "Using cached cropped image");
-            return cached;
+            return new Image(*cached);
         }
     }
 

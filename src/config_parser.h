@@ -14,6 +14,7 @@ public:
 
     bool LoadFromFile(const std::string& filepath);
     bool LoadFromString(const std::string& content);
+    std::string SaveToString() const;
 
     bool HasSection(const std::string& section) const;
     bool HasKey(const std::string& section, const std::string& key) const;

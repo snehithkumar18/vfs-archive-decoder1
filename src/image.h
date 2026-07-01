@@ -39,12 +39,12 @@ public:
     ~Image() = default;
 
     // Copy constructor and assignment
-    Image(const Image&) = default;
-    Image& operator=(const Image&) = default;
+    Image(const Image& other);
+    Image& operator=(const Image& other);
 
     // Move constructor and assignment
-    Image(Image&&) noexcept = default;
-    Image& operator=(Image&&) noexcept = default;
+    Image(Image&& other) noexcept;
+    Image& operator=(Image&& other) noexcept;
 
     // Core functionality
     PixelForgeErrorCode allocate(uint32_t width, uint32_t height, PixelFormat format);
