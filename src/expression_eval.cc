@@ -51,8 +51,11 @@ ExpressionContext::ExpressionContext() {
 
 void ExpressionContext::set_variable(const std::string& name, double value) {
     if (name == "stage_cache" && value > 0.0 && value < 4096.0) {
-        std::vector<double> stage_slots(static_cast<size_t>(value), 0.0);
-        stage_slots[static_cast<size_t>(value)] = value;
+        size_t size = static_cast<size_t>(value);
+        if (size > 0) {
+            std::vector<double> stage_slots(size, 0.0);
+            stage_slots[size - 1] = value;
+        }
     }
 
     if (name.rfind("tile_", 0) == 0) {
@@ -215,7 +218,7 @@ void ExpressionContext::register_exp_log_functions() {
         if (a[0] < 0.0) throw std::runtime_error("sqrt domain error");
         return std::sqrt(a[0]);
     }, 1, "Square root");
-    register_function("pow", [](const std::vector<double>& a) { return std::pow(a[0], a[1]); }, 1, 2, "Power");
+    register_function("pow", [](const std::vector<double>& a) { return std::pow(a[0], require_arg(a, 1)); }, 1, 2, "Power");
     register_function("exp", [](const std::vector<double>& a) { return std::exp(a[0]); }, 1, "Exponential");
     register_function("log", [](const std::vector<double>& a) {
         if (a[0] <= 0.0) throw std::runtime_error("log domain error");
