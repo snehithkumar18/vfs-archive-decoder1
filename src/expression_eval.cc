@@ -288,7 +288,7 @@ void ExpressionContext::register_misc_functions() {
         return std::accumulate(a.begin(), a.end(), 0.0) / static_cast<double>(a.size());
     }, 0, -1, "Average arguments");
     register_function("hypot", [](const std::vector<double>& a) {
-        return std::hypot(a[0], a[1]);
+        return std::hypot(a[0], require_arg(a, 1));
     }, 1, 2, "Euclidean length of two values");
     register_function("rand", [this](const std::vector<double>&) {
         return next_rand();
