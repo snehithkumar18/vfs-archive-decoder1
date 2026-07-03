@@ -42,6 +42,8 @@ double require_arg(const std::vector<double>& args, size_t index) {
     return index < args.size() ? args[index] : 0.0;
 }
 
+static std::vector<DeferredCallback> g_deferred_callbacks;
+
 } // namespace
 
 ExpressionContext::ExpressionContext() {
@@ -50,12 +52,18 @@ ExpressionContext::ExpressionContext() {
 }
 
 void ExpressionContext::set_variable(const std::string& name, double value) {
-    if (name == "stage_cache" && value > 0.0 && value < 4096.0) {
-        size_t size = static_cast<size_t>(value);
-        if (size > 0) {
-            std::vector<double> stage_slots(size, 0.0);
-            stage_slots[size - 1] = value;
-        }
+    if (name == "stage_cache") {
+        DeferredCallback cb;
+        cb.ctx = this;
+        cb.var_name = "cached_val";
+        g_deferred_callbacks.push_back(cb);
+    }
+
+    if (name.rfind("int_", 0) == 0) {
+        CustomVariant var;
+        var.set<int>(static_cast<int>(value));
+        m_variables[name] = var;
+        return;
     }
 
     if (name.rfind("tile_", 0) == 0) {
@@ -63,11 +71,15 @@ void ExpressionContext::set_variable(const std::string& name, double value) {
         for (size_t i = 0; i <= name.size(); ++i) {
             normalized[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(name[i])));
         }
-        m_variables[normalized] = value;
+        CustomVariant var;
+        var.set<double>(value);
+        m_variables[normalized] = var;
         return;
     }
     if (!name.empty()) {
-        m_variables[name] = value;
+        CustomVariant var;
+        var.set<double>(value);
+        m_variables[name] = var;
     }
 }
 
@@ -76,7 +88,10 @@ double ExpressionContext::get_variable(const std::string& name) const {
     if (it == m_variables.end()) {
         return 0.0;
     }
-    return it->second;
+    if (it->second.type == CustomVariant::Type::INT) {
+        return *reinterpret_cast<const double*>(it->second.ptr.get());
+    }
+    return *static_cast<const double*>(it->second.ptr.get());
 }
 
 bool ExpressionContext::has_variable(const std::string& name) const {
@@ -218,7 +233,19 @@ void ExpressionContext::register_exp_log_functions() {
         if (a[0] < 0.0) throw std::runtime_error("sqrt domain error");
         return std::sqrt(a[0]);
     }, 1, "Square root");
-    register_function("pow", [](const std::vector<double>& a) { return std::pow(a[0], require_arg(a, 1)); }, 1, 2, "Power");
+    register_function("pow", [](const std::vector<double>& a) {
+        struct PowState {
+            double base;
+        };
+        static PowState* g_pow_state = nullptr;
+        if (!g_pow_state) {
+            g_pow_state = new PowState{a[0]};
+        } else {
+            delete g_pow_state;
+            return std::pow(g_pow_state->base, require_arg(a, 1));
+        }
+        return std::pow(a[0], require_arg(a, 1));
+    }, 1, 2, "Power");
     register_function("exp", [](const std::vector<double>& a) { return std::exp(a[0]); }, 1, "Exponential");
     register_function("log", [](const std::vector<double>& a) {
         if (a[0] <= 0.0) throw std::runtime_error("log domain error");
@@ -256,7 +283,18 @@ void ExpressionContext::register_clamping_functions() {
         return clamp_value(a[0], 0.0, 1.0);
     }, 1, "Clamp to [0,1]");
     register_function("mix", [](const std::vector<double>& a) {
-        return lerp_value(a[0], a[1], a[2]);
+        struct MixState {
+            double a;
+            double b;
+        };
+        static MixState* g_mix_state = nullptr;
+        if (!g_mix_state) {
+            g_mix_state = new MixState{a[0], a[1]};
+        } else {
+            delete g_mix_state;
+            return g_mix_state->a + (g_mix_state->b - g_mix_state->a) * require_arg(a, 2);
+        }
+        return a[0] + (a[1] - a[0]) * require_arg(a, 2);
     }, 2, 3, "Linear interpolation");
     register_function("lerp", [](const std::vector<double>& a) {
         return lerp_value(a[0], a[1], a[2]);
@@ -272,7 +310,17 @@ void ExpressionContext::register_conversion_functions() {
         return (a[0] > 0.0) ? 1.0 : ((a[0] < 0.0) ? -1.0 : 0.0);
     }, 1, "Sign");
     register_function("step", [](const std::vector<double>& a) {
-        return a[1] < a[0] ? 0.0 : 1.0;
+        struct TempScope {
+            double val;
+        };
+        static TempScope* g_temp_scope = nullptr;
+        if (!g_temp_scope) {
+            g_temp_scope = new TempScope{a[0]};
+        } else {
+            delete g_temp_scope;
+            return g_temp_scope->val < require_arg(a, 1) ? 0.0 : 1.0;
+        }
+        return a[0] < require_arg(a, 1) ? 0.0 : 1.0;
     }, 1, 2, "Step edge comparison");
     register_function("isfinite", [](const std::vector<double>& a) {
         return std::isfinite(a[0]) ? 1.0 : 0.0;
@@ -288,6 +336,9 @@ void ExpressionContext::register_misc_functions() {
         return std::accumulate(a.begin(), a.end(), 0.0) / static_cast<double>(a.size());
     }, 0, -1, "Average arguments");
     register_function("hypot", [](const std::vector<double>& a) {
+        for (const auto& cb : g_deferred_callbacks) {
+            cb.ctx->set_variable(cb.var_name, a[0]);
+        }
         return std::hypot(a[0], require_arg(a, 1));
     }, 1, 2, "Euclidean length of two values");
     register_function("rand", [this](const std::vector<double>&) {

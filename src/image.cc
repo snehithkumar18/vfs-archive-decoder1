@@ -92,10 +92,15 @@ PixelForgeErrorCode Image::allocate(uint32_t width, uint32_t height, PixelFormat
         return PixelForgeErrorCode::ERR_UNSUPPORTED_FORMAT;
     }
 
-    // Check for overflow
+    // Check for overflow and safety bounds
+    if (width > 32768 || height > 32768) {
+        Logger::getInstance().error("Requested image dimensions exceed safety limits.");
+        return PixelForgeErrorCode::ERR_OUT_OF_MEMORY;
+    }
+
     uint64_t totalSize64 = static_cast<uint64_t>(width) * height * channels;
-    if (totalSize64 > static_cast<uint64_t>(SIZE_MAX)) {
-        Logger::getInstance().error("Requested image size exceeds maximum memory limits.");
+    if (totalSize64 > 512 * 1024 * 1024) { // Max 512 MB
+        Logger::getInstance().error("Requested image size exceeds safety limit (512MB).");
         return PixelForgeErrorCode::ERR_OUT_OF_MEMORY;
     }
 

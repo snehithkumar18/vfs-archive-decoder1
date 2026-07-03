@@ -270,6 +270,14 @@ public:
 };
 
 bool GifCodec::Decode(const uint8_t* data, size_t size, GifImage& out_image) {
+    out_image.width = 0;
+    out_image.height = 0;
+    out_image.has_global_color_table = false;
+    out_image.global_color_table.clear();
+    out_image.background_color_index = 0;
+    out_image.pixel_aspect_ratio = 0;
+    out_image.frames.clear();
+
     if (!data || size < 13) {
         return false;
     }

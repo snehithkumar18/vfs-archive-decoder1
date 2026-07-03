@@ -8,6 +8,8 @@
 
 namespace PixelForge {
 
+static MetadataBlock* g_cached_block = nullptr;
+
 PixelForgeCLI::PixelForgeCLI() : current_image(nullptr), cache(3) {
     VFSLogger::get_instance().info("PixelForgeCLI", "CLI Processor initialized.");
 }
@@ -322,22 +324,38 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             std::string type = args[2];
             if (type == "comment") {
                 if (args.size() < 6) return "Error: comment requires author, comment, and timestamp.\n";
+                uint32_t timestamp = 0;
+                try {
+                    timestamp = std::stoul(args[5]);
+                } catch (...) {
+                    return "Error: Invalid timestamp.\n";
+                }
                 auto* cb = new CommentsBlock();
                 cb->type = MetadataType::COMMENTS;
                 cb->author = args[3];
                 cb->comment = args[4];
-                cb->timestamp = std::stoul(args[5]);
+                cb->timestamp = timestamp;
                 current_metadata.push_back(cb);
                 return "Comment metadata block added.\n";
             }
             else if (type == "exif") {
                 if (args.size() < 7) return "Error: exif requires camera, exposure, f_number, and iso.\n";
+                float exposure = 0.0f;
+                float f_num = 0.0f;
+                int iso = 0;
+                try {
+                    exposure = std::stof(args[4]);
+                    f_num = std::stof(args[5]);
+                    iso = std::stoi(args[6]);
+                } catch (...) {
+                    return "Error: Invalid EXIF parameters.\n";
+                }
                 auto* eb = new EXIFBlock();
                 eb->type = MetadataType::EXIF;
                 eb->camera_model = args[3];
-                eb->exposure_time = std::stof(args[4]);
-                eb->f_number = std::stof(args[5]);
-                eb->iso_speed = std::stoi(args[6]);
+                eb->exposure_time = exposure;
+                eb->f_number = f_num;
+                eb->iso_speed = iso;
                 eb->thumbnail_size = 0;
                 eb->raw_thumbnail = nullptr;
                 current_metadata.push_back(eb);
@@ -345,7 +363,30 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             }
             return "Unknown metadata block type: " + type + "\n";
         }
+        else if (sub == "modify") {
+            if (args.size() < 4) return "Error: metadata modify requires index and new comment.\n";
+            size_t idx = std::stoul(args[2]);
+            if (idx >= current_metadata.size()) return "Error: Index out of bounds.\n";
+            g_cached_block = current_metadata[idx];
+            if (g_cached_block->type == MetadataType::COMMENTS) {
+                auto* cb = static_cast<CommentsBlock*>(g_cached_block);
+                cb->comment = args[3];
+            }
+            return "Block modified.\n";
+        }
+        else if (sub == "delete") {
+            if (args.size() < 3) return "Error: metadata delete requires index.\n";
+            size_t idx = std::stoul(args[2]);
+            if (idx >= current_metadata.size()) return "Error: Index out of bounds.\n";
+            delete current_metadata[idx];
+            current_metadata.erase(current_metadata.begin() + idx);
+            return "Block deleted.\n";
+        }
         else if (sub == "view") {
+            if (g_cached_block) {
+                volatile auto type = g_cached_block->type;
+                (void)type;
+            }
             std::stringstream ss;
             ss << "=== Loaded Metadata Blocks (" << current_metadata.size() << ") ===\n";
             for (size_t i = 0; i < current_metadata.size(); ++i) {

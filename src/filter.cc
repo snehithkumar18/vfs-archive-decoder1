@@ -121,11 +121,10 @@ Image* apply_resize(const Image* src, int new_w, int new_h, FilterCache* cache, 
         for (int x = 0; x < new_w; ++x) {
             float px = x * x_ratio;
             float py = y * y_ratio;
-            int ix = static_cast<int>(std::floor(px));
-            int iy = static_cast<int>(std::floor(py));
-
-            int ix_next = std::min(ix + 1, static_cast<int>(src->width) - 1);
-            int iy_next = std::min(iy + 1, static_cast<int>(src->height) - 1);
+            int ix = std::clamp(static_cast<int>(std::floor(px)), 0, static_cast<int>(src->width) - 1);
+            int iy = std::clamp(static_cast<int>(std::floor(py)), 0, static_cast<int>(src->height) - 1);
+            int ix_next = std::clamp(ix + 1, 0, static_cast<int>(src->width) - 1);
+            int iy_next = std::clamp(iy + 1, 0, static_cast<int>(src->height) - 1);
 
             float dx = px - ix;
             float dy = py - iy;

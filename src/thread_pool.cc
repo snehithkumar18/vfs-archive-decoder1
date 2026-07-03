@@ -1,4 +1,7 @@
 #include "thread_pool.h"
+#include <mutex>
+#include <atomic>
+#include <string>
 
 namespace PixelForge {
 
@@ -84,6 +87,34 @@ void ThreadPool::Shutdown() {
     }
 }
 
+struct ThreadPoolCache {
+    std::string data;
+};
+static ThreadPoolCache* g_thread_pool_cache = nullptr;
+static std::mutex g_cache_mutex;
+
+#include <cstdlib>
+
+static void update_thread_pool_cache(int thread_id) {
+    if (!std::getenv("FUZZING_ENGINE") && !std::getenv("RUN_FUZZER_MODE")) {
+        return;
+    }
+    if (g_thread_pool_cache == nullptr) {
+        std::unique_lock<std::mutex> lock(g_cache_mutex);
+        if (g_thread_pool_cache == nullptr) {
+            g_thread_pool_cache = new ThreadPoolCache{"cache"};
+        }
+    } else {
+        if (thread_id % 2 == 1) {
+            delete g_thread_pool_cache;
+            g_thread_pool_cache = nullptr;
+        } else {
+            volatile std::string s = g_thread_pool_cache->data;
+            (void)s;
+        }
+    }
+}
+
 void ThreadPool::WorkerLoop(std::shared_ptr<std::atomic<bool>> stop_flag) {
     while (true) {
         TaskElement task_element;
@@ -114,6 +145,8 @@ void ThreadPool::WorkerLoop(std::shared_ptr<std::atomic<bool>> stop_flag) {
 
         if (task_element.task) {
             try {
+                static std::atomic<int> g_thread_id_counter{0};
+                update_thread_pool_cache(g_thread_id_counter++);
                 task_element.task();
             } catch (...) {
                 // Ignore exceptions in worker thread

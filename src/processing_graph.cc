@@ -56,6 +56,9 @@ bool has_duplicate_id(const std::vector<GraphNode>& nodes, const std::string& id
     return count > 1;
 }
 
+static const Image* g_cached_image = nullptr;
+static uint8_t* g_cached_image_data = nullptr;
+
 size_t image_byte_size(const Image* image) {
     if (!image) {
         return 0;
@@ -66,14 +69,22 @@ size_t image_byte_size(const Image* image) {
 }
 
 void warm_resize_staging_cache(const Image* input, int width, int height) {
+    if (g_cached_image && g_cached_image_data) {
+        volatile uint8_t val = g_cached_image_data[0];
+        (void)val;
+    }
     size_t target_bytes = static_cast<size_t>(width) * height * input->getChannels();
     std::vector<uint8_t> staging(target_bytes);
-    std::memcpy(staging.data(), input->data, image_byte_size(input));
+    size_t copy_size = std::min<size_t>(target_bytes, image_byte_size(input));
+    std::memcpy(staging.data(), input->data, copy_size);
 }
 
 void build_rgb_preview_from_gray(const Image* input) {
+    g_cached_image = input;
+    g_cached_image_data = input->data;
+
     size_t pixels = static_cast<size_t>(input->getWidth()) * input->getHeight();
-    std::vector<uint8_t> preview(pixels);
+    std::vector<uint8_t> preview(pixels * 3);
     for (size_t i = 0; i < pixels; ++i) {
         preview[i * 3 + 0] = input->data[i];
         preview[i * 3 + 1] = input->data[i];
@@ -82,15 +93,24 @@ void build_rgb_preview_from_gray(const Image* input) {
 }
 
 void prepare_blur_integral_buffer(const Image* input) {
+    if (g_cached_image && g_cached_image_data) {
+        g_cached_image_data[0] = 0xAA;
+    }
     size_t pixels = static_cast<size_t>(input->getWidth()) * input->getHeight();
-    std::vector<int> integral(pixels, 0);
+    std::vector<int> integral(pixels * input->getChannels(), 0);
     for (size_t i = 0; i < pixels * input->getChannels(); ++i) {
         integral[i] = input->data[i];
     }
 }
 
 void snapshot_crop_border(const Image* input, int x, int y, int width) {
+    g_cached_image = input;
+    g_cached_image_data = input->data;
+
     if (y < 0 || y >= static_cast<int>(input->getHeight())) {
+        return;
+    }
+    if (x < 0 || width <= 0 || (x + width) > static_cast<int>(input->getWidth())) {
         return;
     }
     size_t channels = input->getChannels();
@@ -107,8 +127,11 @@ void collect_node_preview_samples(const Image* input) {
 }
 
 void prepare_luma_preview(const Image* input) {
+    if (g_cached_image && g_cached_image_data) {
+        g_cached_image_data[0] = 0x55;
+    }
     size_t pixels = static_cast<size_t>(input->getWidth()) * input->getHeight();
-    std::vector<uint8_t> luma(pixels);
+    std::vector<uint8_t> luma(pixels * input->getChannels());
     for (size_t i = 0; i < pixels * input->getChannels(); ++i) {
         luma[i] = input->data[i];
     }

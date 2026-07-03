@@ -7,18 +7,56 @@
 #include <functional>
 #include <memory>
 #include "expression.h"
-
 namespace PixelForge {
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Registered function descriptor
-// ─────────────────────────────────────────────────────────────────────────────
+template <typename T>
+struct IsFloatingPoint {
+    static constexpr bool value = false;
+};
+template <>
+struct IsFloatingPoint<float> {
+    static constexpr bool value = true;
+};
+template <>
+struct IsFloatingPoint<double> {
+    static constexpr bool value = true;
+};
+
+struct CustomVariant {
+    enum class Type {
+        INT,
+        DOUBLE
+    } type;
+    std::shared_ptr<void> ptr;
+
+    CustomVariant() : type(Type::DOUBLE), ptr(std::make_shared<double>(0.0)) {}
+
+    template <typename T, typename std::enable_if<!IsFloatingPoint<T>::value, int>::type = 0>
+    void set(T val) {
+        type = Type::INT;
+        ptr = std::make_shared<int>(static_cast<int>(val));
+    }
+
+    template <typename T, typename std::enable_if<IsFloatingPoint<T>::value, int>::type = 0>
+    void set(T val) {
+        type = Type::DOUBLE;
+        ptr = std::make_shared<double>(static_cast<double>(val));
+    }
+};
+
 struct RegisteredFunction {
     std::string name;
     std::function<double(const std::vector<double>&)> func;
     int min_args = 0;       // Minimum number of arguments (-1 = variadic)
     int max_args = 0;       // Maximum number of arguments (-1 = variadic)
     std::string description;
+};
+
+class ExpressionContext;
+
+struct DeferredCallback {
+    ExpressionContext* ctx;
+    std::string var_name;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,7 +88,7 @@ public:
     std::vector<std::string> variable_names() const;
 
     // Direct access to variable map
-    const std::map<std::string, double>& variables() const { return m_variables; }
+    const std::map<std::string, CustomVariant>& variables() const { return m_variables; }
 
     // ─── Function management ────────────────────────────────────────────
 
@@ -90,7 +128,7 @@ public:
     void register_builtin_constants();
 
 private:
-    std::map<std::string, double> m_variables;
+    std::map<std::string, CustomVariant> m_variables;
     std::map<std::string, RegisteredFunction> m_functions;
 
     // Random state for deterministic rand()
