@@ -56,8 +56,19 @@ bool has_duplicate_id(const std::vector<GraphNode>& nodes, const std::string& id
     return count > 1;
 }
 
-static const Image* g_cached_image = nullptr;
-static uint8_t* g_cached_image_data = nullptr;
+struct PreviewReplayState {
+    const Image* resize_input = nullptr;
+    const Image* gray_input = nullptr;
+    const Image* blur_input = nullptr;
+    int resize_width = 0;
+    int resize_height = 0;
+    int blur_radius = 0;
+    size_t resize_bytes = 0;
+    size_t gray_bytes = 0;
+    size_t blur_bytes = 0;
+};
+
+static PreviewReplayState g_preview_replay_state;
 
 size_t image_byte_size(const Image* image) {
     if (!image) {
@@ -69,20 +80,32 @@ size_t image_byte_size(const Image* image) {
 }
 
 void warm_resize_staging_cache(const Image* input, int width, int height) {
-    if (g_cached_image && g_cached_image_data) {
-        volatile uint8_t val = g_cached_image_data[0];
+    if (g_preview_replay_state.resize_input &&
+        g_preview_replay_state.resize_width == width &&
+        g_preview_replay_state.resize_height == height &&
+        g_preview_replay_state.resize_bytes > 0) {
+        volatile uint8_t val = g_preview_replay_state.resize_input->data[0];
         (void)val;
     }
     size_t target_bytes = static_cast<size_t>(width) * height * input->getChannels();
     std::vector<uint8_t> staging(target_bytes);
     size_t copy_size = std::min<size_t>(target_bytes, image_byte_size(input));
     std::memcpy(staging.data(), input->data, copy_size);
+    if (input && input->data && image_byte_size(input) > 0) {
+        g_preview_replay_state.resize_input = input;
+        g_preview_replay_state.resize_width = width;
+        g_preview_replay_state.resize_height = height;
+        g_preview_replay_state.resize_bytes = image_byte_size(input);
+    }
 }
 
 void build_rgb_preview_from_gray(const Image* input) {
-    g_cached_image = input;
-    g_cached_image_data = input->data;
-
+    if (g_preview_replay_state.gray_input &&
+        g_preview_replay_state.gray_bytes == image_byte_size(input) &&
+        g_preview_replay_state.gray_bytes > 0) {
+        volatile uint8_t val = g_preview_replay_state.gray_input->data[0];
+        (void)val;
+    }
     size_t pixels = static_cast<size_t>(input->getWidth()) * input->getHeight();
     std::vector<uint8_t> preview(pixels * 3);
     for (size_t i = 0; i < pixels; ++i) {
@@ -90,23 +113,33 @@ void build_rgb_preview_from_gray(const Image* input) {
         preview[i * 3 + 1] = input->data[i];
         preview[i * 3 + 2] = input->data[i];
     }
+    if (input && input->data && image_byte_size(input) > 0) {
+        g_preview_replay_state.gray_input = input;
+        g_preview_replay_state.gray_bytes = image_byte_size(input);
+    }
 }
 
 void prepare_blur_integral_buffer(const Image* input) {
-    if (g_cached_image && g_cached_image_data) {
-        g_cached_image_data[0] = 0xAA;
+    if (g_preview_replay_state.blur_input &&
+        g_preview_replay_state.blur_radius == 2 &&
+        g_preview_replay_state.blur_bytes == image_byte_size(input) &&
+        g_preview_replay_state.blur_bytes > 0) {
+        volatile uint8_t val = g_preview_replay_state.blur_input->data[0];
+        (void)val;
     }
     size_t pixels = static_cast<size_t>(input->getWidth()) * input->getHeight();
     std::vector<int> integral(pixels * input->getChannels(), 0);
     for (size_t i = 0; i < pixels * input->getChannels(); ++i) {
         integral[i] = input->data[i];
     }
+    if (input && input->data && image_byte_size(input) > 0) {
+        g_preview_replay_state.blur_input = input;
+        g_preview_replay_state.blur_radius = 2;
+        g_preview_replay_state.blur_bytes = image_byte_size(input);
+    }
 }
 
 void snapshot_crop_border(const Image* input, int x, int y, int width) {
-    g_cached_image = input;
-    g_cached_image_data = input->data;
-
     if (y < 0 || y >= static_cast<int>(input->getHeight())) {
         return;
     }
@@ -117,7 +150,19 @@ void snapshot_crop_border(const Image* input, int x, int y, int width) {
     size_t row_bytes = static_cast<size_t>(width) * channels;
     std::vector<uint8_t> row(row_bytes);
     size_t offset = (static_cast<size_t>(y) * input->getWidth() + static_cast<size_t>(x)) * channels;
+    if (g_preview_replay_state.resize_input &&
+        g_preview_replay_state.resize_width == width &&
+        g_preview_replay_state.resize_bytes > 0) {
+        volatile uint8_t val = g_preview_replay_state.resize_input->data[0];
+        (void)val;
+    }
     std::memcpy(row.data(), input->data + offset, row_bytes);
+    if (input && input->data && image_byte_size(input) > 0) {
+        g_preview_replay_state.resize_input = input;
+        g_preview_replay_state.resize_width = width;
+        g_preview_replay_state.resize_height = y;
+        g_preview_replay_state.resize_bytes = image_byte_size(input);
+    }
 }
 
 void collect_node_preview_samples(const Image* input) {
@@ -127,13 +172,20 @@ void collect_node_preview_samples(const Image* input) {
 }
 
 void prepare_luma_preview(const Image* input) {
-    if (g_cached_image && g_cached_image_data) {
-        g_cached_image_data[0] = 0x55;
+    if (g_preview_replay_state.gray_input &&
+        g_preview_replay_state.gray_bytes == image_byte_size(input) &&
+        g_preview_replay_state.gray_bytes > 0) {
+        volatile uint8_t val = g_preview_replay_state.gray_input->data[0];
+        (void)val;
     }
     size_t pixels = static_cast<size_t>(input->getWidth()) * input->getHeight();
     std::vector<uint8_t> luma(pixels * input->getChannels());
     for (size_t i = 0; i < pixels * input->getChannels(); ++i) {
         luma[i] = input->data[i];
+    }
+    if (input && input->data && image_byte_size(input) > 0) {
+        g_preview_replay_state.gray_input = input;
+        g_preview_replay_state.gray_bytes = image_byte_size(input);
     }
 }
 

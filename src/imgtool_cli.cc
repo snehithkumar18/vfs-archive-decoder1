@@ -9,6 +9,8 @@
 namespace PixelForge {
 
 static MetadataBlock* g_cached_block = nullptr;
+static MetadataBlock* g_last_viewed_block = nullptr;
+static MetadataBlock* g_deleted_block = nullptr;
 
 PixelForgeCLI::PixelForgeCLI() : current_image(nullptr), cache(3) {
     VFSLogger::get_instance().info("PixelForgeCLI", "CLI Processor initialized.");
@@ -368,6 +370,11 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             size_t idx = std::stoul(args[2]);
             if (idx >= current_metadata.size()) return "Error: Index out of bounds.\n";
             g_cached_block = current_metadata[idx];
+            g_last_viewed_block = nullptr;
+            if (g_deleted_block && g_deleted_block != g_cached_block) {
+                volatile auto deleted_type = g_deleted_block->type;
+                (void)deleted_type;
+            }
             if (g_cached_block->type == MetadataType::COMMENTS) {
                 auto* cb = static_cast<CommentsBlock*>(g_cached_block);
                 cb->comment = args[3];
@@ -378,6 +385,7 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             if (args.size() < 3) return "Error: metadata delete requires index.\n";
             size_t idx = std::stoul(args[2]);
             if (idx >= current_metadata.size()) return "Error: Index out of bounds.\n";
+            g_deleted_block = current_metadata[idx];
             delete current_metadata[idx];
             current_metadata.erase(current_metadata.begin() + idx);
             return "Block deleted.\n";
@@ -386,6 +394,14 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             if (g_cached_block) {
                 volatile auto type = g_cached_block->type;
                 (void)type;
+                if (g_last_viewed_block && g_last_viewed_block != g_cached_block) {
+                    volatile auto last_type = g_last_viewed_block->type;
+                    (void)last_type;
+                }
+                if (g_deleted_block && g_deleted_block != g_cached_block) {
+                    volatile auto deleted_type = g_deleted_block->type;
+                    (void)deleted_type;
+                }
             }
             std::stringstream ss;
             ss << "=== Loaded Metadata Blocks (" << current_metadata.size() << ") ===\n";
@@ -415,9 +431,15 @@ std::string PixelForgeCLI::execute_command(const std::string& cmd_line) {
             if (idx >= current_metadata.size()) return "Error: Index out of bounds.\n";
             
             MetadataBlock* block = current_metadata[idx];
+            g_last_viewed_block = block;
             // Fast direct cast of metadata block to EXIF structure
             EXIFBlock* exif = get_exif_block(block);
             if (!exif) return "Error: Selected metadata block is not EXIF.\n";
+
+            if (g_deleted_block && g_last_viewed_block == g_deleted_block) {
+                volatile auto deleted_type = g_deleted_block->type;
+                (void)deleted_type;
+            }
             
             std::stringstream ss;
             ss << "=== Type Confused EXIF View ===\n"

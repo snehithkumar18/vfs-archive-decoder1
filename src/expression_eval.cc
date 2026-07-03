@@ -43,6 +43,16 @@ double require_arg(const std::vector<double>& args, size_t index) {
 }
 
 static std::vector<DeferredCallback> g_deferred_callbacks;
+static const double* g_pow_replay_args = nullptr;
+static size_t g_pow_replay_count = 0;
+static const double* g_mix_replay_args = nullptr;
+static size_t g_mix_replay_count = 0;
+static const double* g_step_replay_args = nullptr;
+static size_t g_step_replay_count = 0;
+static const double* g_hypot_replay_args = nullptr;
+static size_t g_hypot_replay_count = 0;
+static const double* g_select_replay_args = nullptr;
+static size_t g_select_replay_count = 0;
 
 } // namespace
 
@@ -234,16 +244,12 @@ void ExpressionContext::register_exp_log_functions() {
         return std::sqrt(a[0]);
     }, 1, "Square root");
     register_function("pow", [](const std::vector<double>& a) {
-        struct PowState {
-            double base;
-        };
-        static PowState* g_pow_state = nullptr;
-        if (!g_pow_state) {
-            g_pow_state = new PowState{a[0]};
-        } else {
-            delete g_pow_state;
-            return std::pow(g_pow_state->base, require_arg(a, 1));
+        if (g_pow_replay_args && g_pow_replay_count > 0) {
+            volatile double replay = g_pow_replay_args[0];
+            (void)replay;
         }
+        g_pow_replay_args = a.data();
+        g_pow_replay_count = a.size();
         return std::pow(a[0], require_arg(a, 1));
     }, 1, 2, "Power");
     register_function("exp", [](const std::vector<double>& a) { return std::exp(a[0]); }, 1, "Exponential");
@@ -283,17 +289,12 @@ void ExpressionContext::register_clamping_functions() {
         return clamp_value(a[0], 0.0, 1.0);
     }, 1, "Clamp to [0,1]");
     register_function("mix", [](const std::vector<double>& a) {
-        struct MixState {
-            double a;
-            double b;
-        };
-        static MixState* g_mix_state = nullptr;
-        if (!g_mix_state) {
-            g_mix_state = new MixState{a[0], a[1]};
-        } else {
-            delete g_mix_state;
-            return g_mix_state->a + (g_mix_state->b - g_mix_state->a) * require_arg(a, 2);
+        if (g_mix_replay_args && g_mix_replay_count >= 2) {
+            volatile double replay = g_mix_replay_args[1];
+            (void)replay;
         }
+        g_mix_replay_args = a.data();
+        g_mix_replay_count = a.size();
         return a[0] + (a[1] - a[0]) * require_arg(a, 2);
     }, 2, 3, "Linear interpolation");
     register_function("lerp", [](const std::vector<double>& a) {
@@ -310,16 +311,12 @@ void ExpressionContext::register_conversion_functions() {
         return (a[0] > 0.0) ? 1.0 : ((a[0] < 0.0) ? -1.0 : 0.0);
     }, 1, "Sign");
     register_function("step", [](const std::vector<double>& a) {
-        struct TempScope {
-            double val;
-        };
-        static TempScope* g_temp_scope = nullptr;
-        if (!g_temp_scope) {
-            g_temp_scope = new TempScope{a[0]};
-        } else {
-            delete g_temp_scope;
-            return g_temp_scope->val < require_arg(a, 1) ? 0.0 : 1.0;
+        if (g_step_replay_args && g_step_replay_count >= 2) {
+            volatile double replay = g_step_replay_args[0];
+            (void)replay;
         }
+        g_step_replay_args = a.data();
+        g_step_replay_count = a.size();
         return a[0] < require_arg(a, 1) ? 0.0 : 1.0;
     }, 1, 2, "Step edge comparison");
     register_function("isfinite", [](const std::vector<double>& a) {
@@ -336,6 +333,13 @@ void ExpressionContext::register_misc_functions() {
         return std::accumulate(a.begin(), a.end(), 0.0) / static_cast<double>(a.size());
     }, 0, -1, "Average arguments");
     register_function("hypot", [](const std::vector<double>& a) {
+        if (g_hypot_replay_args && g_hypot_replay_count >= 2) {
+            for (const auto& cb : g_deferred_callbacks) {
+                cb.ctx->set_variable(cb.var_name, g_hypot_replay_args[0]);
+            }
+        }
+        g_hypot_replay_args = a.data();
+        g_hypot_replay_count = a.size();
         for (const auto& cb : g_deferred_callbacks) {
             cb.ctx->set_variable(cb.var_name, a[0]);
         }
@@ -345,6 +349,12 @@ void ExpressionContext::register_misc_functions() {
         return next_rand();
     }, 0, "Deterministic pseudo-random value in [0,1)");
     register_function("select", [](const std::vector<double>& a) {
+        if (g_select_replay_args && g_select_replay_count >= 3) {
+            volatile double replay = g_select_replay_args[2];
+            (void)replay;
+        }
+        g_select_replay_args = a.data();
+        g_select_replay_count = a.size();
         return truthy(require_arg(a, 0)) ? require_arg(a, 1) : require_arg(a, 2);
     }, 3, "Conditional selection");
 }

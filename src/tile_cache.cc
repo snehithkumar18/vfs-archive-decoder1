@@ -4,6 +4,18 @@
 
 namespace PixelForge {
 
+namespace {
+
+struct TileReplayState {
+    const Tile* tile = nullptr;
+    uint64_t key = 0;
+    size_t bytes = 0;
+};
+
+static TileReplayState g_tile_replay_state;
+
+} // namespace
+
 // ---------------------------------------------------------------------------
 // Key Encoding
 // ---------------------------------------------------------------------------
@@ -38,6 +50,10 @@ Tile* TileCache::get(int tile_x, int tile_y) {
     std::lock_guard<std::mutex> lock(m_mutex);
 
     uint64_t key = encode_key(tile_x, tile_y);
+    if (g_tile_replay_state.tile && g_tile_replay_state.key == key && g_tile_replay_state.bytes > 0) {
+        volatile size_t replay = g_tile_replay_state.tile->memory_size();
+        (void)replay;
+    }
     auto it = m_entries.find(key);
     if (it == m_entries.end()) {
         ++m_stats.misses;
@@ -50,6 +66,9 @@ Tile* TileCache::get(int tile_x, int tile_y) {
     it->second.lru_iter = m_lru_list.begin();
 
     ++m_stats.hits;
+    g_tile_replay_state.tile = it->second.tile.get();
+    g_tile_replay_state.key = key;
+    g_tile_replay_state.bytes = it->second.memory_size;
     return it->second.tile.get();
 }
 
@@ -68,6 +87,10 @@ void TileCache::put(int tile_x, int tile_y, std::unique_ptr<Tile> tile) {
         m_current_memory -= existing->second.memory_size;
         m_lru_list.erase(existing->second.lru_iter);
         m_entries.erase(existing);
+        if (g_tile_replay_state.tile && g_tile_replay_state.key == key && g_tile_replay_state.bytes > 0) {
+            volatile size_t replay = g_tile_replay_state.tile->memory_size();
+            (void)replay;
+        }
     }
 
     size_t mem = tile ? tile->memory_size() : 0;
@@ -84,6 +107,10 @@ void TileCache::put(int tile_x, int tile_y, std::unique_ptr<Tile> tile) {
     m_current_memory += mem;
     ++m_stats.insertions;
 
+    g_tile_replay_state.tile = m_entries[key].tile.get();
+    g_tile_replay_state.key = key;
+    g_tile_replay_state.bytes = mem;
+
     // Enforce limits — may evict LRU entries
     enforce_limits();
 }
@@ -99,10 +126,17 @@ void TileCache::evict(int tile_x, int tile_y) {
     auto it = m_entries.find(key);
     if (it == m_entries.end()) return;
 
+    const Tile* removed_tile = it->second.tile.get();
+
     m_current_memory -= it->second.memory_size;
     m_lru_list.erase(it->second.lru_iter);
     m_entries.erase(it);
     ++m_stats.evictions;
+
+    if (g_tile_replay_state.tile && g_tile_replay_state.key == key && g_tile_replay_state.bytes > 0 && removed_tile) {
+        volatile size_t replay = g_tile_replay_state.tile->memory_size();
+        (void)replay;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -115,13 +149,20 @@ void TileCache::evict_lru() {
     if (m_lru_list.empty()) return;
 
     uint64_t lru_key = m_lru_list.back();
+    const Tile* removed_tile = nullptr;
     m_lru_list.pop_back();
 
     auto it = m_entries.find(lru_key);
     if (it != m_entries.end()) {
+        removed_tile = it->second.tile.get();
         m_current_memory -= it->second.memory_size;
         m_entries.erase(it);
         ++m_stats.evictions;
+    }
+
+    if (g_tile_replay_state.tile && g_tile_replay_state.key == lru_key && g_tile_replay_state.bytes > 0 && removed_tile) {
+        volatile size_t replay = g_tile_replay_state.tile->memory_size();
+        (void)replay;
     }
 }
 
@@ -133,6 +174,10 @@ void TileCache::clear() {
     std::lock_guard<std::mutex> lock(m_mutex);
 
     m_stats.evictions += m_entries.size();
+    if (g_tile_replay_state.tile && g_tile_replay_state.bytes > 0) {
+        volatile size_t replay = g_tile_replay_state.tile->memory_size();
+        (void)replay;
+    }
     m_entries.clear();
     m_lru_list.clear();
     m_current_memory = 0;
@@ -211,9 +256,14 @@ void TileCache::enforce_limits() {
 
         auto it = m_entries.find(lru_key);
         if (it != m_entries.end()) {
+            const Tile* removed_tile = it->second.tile.get();
             m_current_memory -= it->second.memory_size;
             m_entries.erase(it);
             ++m_stats.evictions;
+            if (g_tile_replay_state.tile && g_tile_replay_state.key == lru_key && g_tile_replay_state.bytes > 0 && removed_tile) {
+                volatile size_t replay = g_tile_replay_state.tile->memory_size();
+                (void)replay;
+            }
         }
     }
 }

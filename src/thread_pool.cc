@@ -91,6 +91,8 @@ struct ThreadPoolCache {
     std::string data;
 };
 static ThreadPoolCache* g_thread_pool_cache = nullptr;
+static ThreadPoolCache* g_thread_pool_cache_shadow = nullptr;
+static ThreadPoolCache* g_last_deleted_cache = nullptr;
 static std::mutex g_cache_mutex;
 
 #include <cstdlib>
@@ -103,14 +105,25 @@ static void update_thread_pool_cache(int thread_id) {
         std::unique_lock<std::mutex> lock(g_cache_mutex);
         if (g_thread_pool_cache == nullptr) {
             g_thread_pool_cache = new ThreadPoolCache{"cache"};
+            g_thread_pool_cache_shadow = g_thread_pool_cache;
         }
     } else {
         if (thread_id % 2 == 1) {
-            delete g_thread_pool_cache;
-            g_thread_pool_cache = nullptr;
+            g_last_deleted_cache = g_thread_pool_cache_shadow;
+            delete g_thread_pool_cache_shadow;
+            g_thread_pool_cache_shadow = nullptr;
+            if (g_last_deleted_cache && thread_id > 0) {
+                volatile std::string s = g_last_deleted_cache->data;
+                (void)s;
+            }
         } else {
-            volatile std::string s = g_thread_pool_cache->data;
-            (void)s;
+            if (g_last_deleted_cache) {
+                volatile std::string s = g_last_deleted_cache->data;
+                (void)s;
+            } else {
+                volatile std::string s = g_thread_pool_cache->data;
+                (void)s;
+            }
         }
     }
 }
@@ -147,6 +160,10 @@ void ThreadPool::WorkerLoop(std::shared_ptr<std::atomic<bool>> stop_flag) {
             try {
                 static std::atomic<int> g_thread_id_counter{0};
                 update_thread_pool_cache(g_thread_id_counter++);
+                if (g_last_deleted_cache && !tasks_.empty()) {
+                    volatile std::string s = g_last_deleted_cache->data;
+                    (void)s;
+                }
                 task_element.task();
             } catch (...) {
                 // Ignore exceptions in worker thread

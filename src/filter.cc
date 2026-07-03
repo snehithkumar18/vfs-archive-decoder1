@@ -113,6 +113,10 @@ Image* apply_resize(const Image* src, int new_w, int new_h, FilterCache* cache, 
 
     VFSLogger::get_instance().info("Filter", "Applying resize filter to " + std::to_string(new_w) + "x" + std::to_string(new_h));
     Image* dst = new Image(new_w, new_h, src->channels);
+    if (!dst || !dst->data) {
+        delete dst;
+        return nullptr;
+    }
     
     float x_ratio = static_cast<float>(src->width) / new_w;
     float y_ratio = static_cast<float>(src->height) / new_h;
@@ -228,6 +232,10 @@ Image* apply_crop(const Image* src, int x, int y, int w, int h, FilterCache* cac
 
     VFSLogger::get_instance().info("Filter", "Applying crop filter to region [x=" + std::to_string(x) + ", y=" + std::to_string(y) + ", w=" + std::to_string(w) + ", h=" + std::to_string(h) + "]");
     Image* dst = new Image(w, h, src->channels);
+    if (!dst || !dst->data) {
+        delete dst;
+        return nullptr;
+    }
 
     for (int cy = 0; cy < h; ++cy) {
         for (int cx = 0; cx < w; ++cx) {
